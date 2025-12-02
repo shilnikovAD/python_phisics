@@ -1,0 +1,13 @@
+{
+  "name": "pendulum-demo",
+  "version": "1.0.0",
+  "description": "Simple pendulum physics demonstration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["pendulum", "physics", "demo"],
+  "author": "",
+  "license": "MIT"
+}
