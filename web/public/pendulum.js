@@ -229,30 +229,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const simulation = new PendulumSimulation('pendulumCanvas');
     
     // Control elements
-    const lengthSlider = document.getElementById('lengthSlider');
-    const angleSlider = document.getElementById('angleSlider');
-    const dampingSlider = document.getElementById('dampingSlider');
+    const lengthInput = document.getElementById('lengthInput');
+    const angleInput = document.getElementById('angleInput');
+    const dampingInput = document.getElementById('dampingInput');
     const resetBtn = document.getElementById('resetBtn');
     const pauseBtn = document.getElementById('pauseBtn');
     
-    // Update displays and simulation on slider change
-    lengthSlider.addEventListener('input', () => {
-        document.getElementById('lengthValue').textContent = lengthSlider.value + ' m';
-    });
-    
-    angleSlider.addEventListener('input', () => {
-        document.getElementById('angleValue').textContent = angleSlider.value + '°';
-    });
-    
-    dampingSlider.addEventListener('input', () => {
-        document.getElementById('dampingValue').textContent = dampingSlider.value;
-    });
+    // Validate and clamp input values
+    function validateInput(input, min, max) {
+        let value = parseFloat(input.value);
+        if (isNaN(value)) value = parseFloat(input.defaultValue);
+        value = Math.max(min, Math.min(max, value));
+        input.value = value;
+        return value;
+    }
     
     // Reset button
     resetBtn.addEventListener('click', () => {
-        const angle = parseFloat(angleSlider.value) * Math.PI / 180;
-        const length = parseFloat(lengthSlider.value);
-        const damping = parseFloat(dampingSlider.value);
+        const length = validateInput(lengthInput, 0.1, 10);
+        const angleDeg = validateInput(angleInput, -180, 180);
+        const damping = validateInput(dampingInput, 0, 1);
+        const angle = angleDeg * Math.PI / 180;
         simulation.reset(angle, length, damping);
     });
     
