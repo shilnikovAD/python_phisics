@@ -90,8 +90,15 @@ class PendulumAPIHandler(BaseHTTPRequestHandler):
         elif parsed_path.path == '/api/reset':
             # Reset pendulum with optional parameters
             query = parse_qs(parsed_path.query)
-            angle = float(query.get('angle', [0.8])[0])
-            length = float(query.get('length', [1.0])[0])
+            try:
+                angle = float(query.get('angle', [0.8])[0])
+                length = float(query.get('length', [1.0])[0])
+                # Validate parameters
+                angle = max(-math.pi, min(math.pi, angle))  # Clamp angle to [-π, π]
+                length = max(0.1, min(10.0, length))  # Clamp length to [0.1, 10.0]
+            except (ValueError, TypeError):
+                angle = 0.8
+                length = 1.0
             self.pendulum = Pendulum(length=length, angle=angle)
             PendulumAPIHandler.pendulum = self.pendulum
             self._set_headers()

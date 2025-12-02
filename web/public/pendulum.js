@@ -213,7 +213,8 @@ class PendulumSimulation {
         
         // Also reset on API if connected
         if (this.useApi) {
-            fetch(`/api/reset?angle=${angle}&length=${length}`);
+            fetch(`/api/reset?angle=${angle}&length=${length}`)
+                .catch(err => console.warn('Failed to reset via API:', err));
         }
     }
     
