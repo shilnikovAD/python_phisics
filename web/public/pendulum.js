@@ -438,7 +438,7 @@ class PendulumSimulation {
         this.errorSum = 0;
         this.errorSamples = 0;
         
-        // Очистка истории для точных измерений
+        // Clear history arrays for accurate measurements
         this.historyTime = [];
         this.historyNum = [];
         this.historyAnalytic = [];
