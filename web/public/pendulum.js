@@ -139,7 +139,6 @@ class PendulumSimulation {
         if (amplitude > 1e-6) {
             // Приближенная поправка на нелинейность
             // Для точной формулы нужны эллиптические интегралы, используем разложение
-            const k = Math.sin(amplitude / 2.0);  // модуль эллиптического интеграла
             // Поправочный множитель к частоте (приближение 3-го порядка)
             const freq_correction = 1.0 + (1.0/16.0)*amplitude**2 + (11.0/3072.0)*amplitude**4;
             omega0 = omega0_linear / freq_correction;
