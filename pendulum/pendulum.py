@@ -54,31 +54,27 @@ class Pendulum:
         if dt <= 0:
             return
 
-        # Метод Хойна (Heun) - более точный, чем Эйлер
-        a1 = self.get_angular_acceleration()
-        w1 = self.angular_velocity
-        th1 = self.angle
-
-        # Пробный шаг Эйлера
-        w_star = w1 + a1 * dt
-        th_star = th1 + w1 * dt
-
-        # Сохраняем текущее состояние
-        saved_angle = self.angle
-        saved_w = self.angular_velocity
-
-        # Вычисляем ускорение в пробной точке
-        self.angle = th_star
-        self.angular_velocity = w_star
-        a2 = self.get_angular_acceleration()
-
-        # Восстанавливаем состояние
-        self.angle = saved_angle
-        self.angular_velocity = saved_w
-
-        # Окончательное обновление (Heun)
-        self.angular_velocity = w1 + 0.5 * (a1 + a2) * dt
-        self.angle = th1 + 0.5 * (w1 + w_star) * dt
+        # Symplectic Euler (leapfrog) - хорошее сохранение энергии для гамильтоновых систем
+        # с правильной обработкой демпфирования
+        
+        # Вычисляем гравитационный момент
+        torque_gravity = -self.mass * self.gravity * self.length * math.sin(self.angle)
+        angular_acc_gravity = torque_gravity / self.I_total
+        
+        # Обновляем скорость: сначала гравитация, затем демпфирование
+        # Для демпфирования используем аналитическое решение: v(t+dt) = v(t)*exp(-damping*dt)
+        # что более точно, чем v(t+dt) = v(t)*(1-damping*dt)
+        if self.damping > 0:
+            # Сначала применяем гравитацию
+            self.angular_velocity += angular_acc_gravity * dt
+            # Затем демпфирование (точная формула)
+            self.angular_velocity *= math.exp(-self.damping * dt)
+        else:
+            # Без демпфирования - просто обновляем от гравитации
+            self.angular_velocity += angular_acc_gravity * dt
+        
+        # Обновляем угол с обновленной скоростью (симплектический шаг)
+        self.angle += self.angular_velocity * dt
 
         self.t_elapsed += dt
 
@@ -87,7 +83,21 @@ class Pendulum:
             t = self.t_elapsed
 
         # Для аналитического решения используем линеаризацию (sinθ ≈ θ)
-        omega0 = math.sqrt(max(EPS, (self.mass * self.gravity * self.length) / self.I_total))
+        # но с поправкой на амплитуду для лучшего совпадения с нелинейной динамикой
+        omega0_linear = math.sqrt(max(EPS, (self.mass * self.gravity * self.length) / self.I_total))
+        
+        # Поправка частоты для больших амплитуд (приближение для нелинейного маятника)
+        # Период нелинейного маятника T ≈ T_linear * (1 + (1/16)*θ₀² + (11/3072)*θ₀⁴)
+        # Следовательно, частота ω ≈ ω_linear / (1 + (1/16)*θ₀² + (11/3072)*θ₀⁴)
+        # Это приближение 3-го порядка из разложения полного эллиптического интеграла
+        amplitude = abs(self.initial_angle)
+        if amplitude > 1e-6:
+            # Поправочный множитель к периоду (приближение из теории эллиптических интегралов)
+            freq_correction = 1.0 + (1.0/16.0)*amplitude**2 + (11.0/3072.0)*amplitude**4
+            omega0 = omega0_linear / freq_correction
+        else:
+            omega0 = omega0_linear
+        
         beta = 0.5 * self.damping
 
         # Проверка режима
