@@ -360,10 +360,18 @@ class PendulumSimulation {
         const allY = this.historyNum.concat(this.historyAnalytic);
         const ymin = Math.min(...allY);
         const ymax = Math.max(...allY);
-        const dy = (ymax - ymin) || 1;
+        
+        // Set minimum range to prevent over-magnification of small oscillations
+        const minRange = Math.max(0.02, Math.abs(this.initialAngle) * 0.1);
+        let dy = Math.max(ymax - ymin, minRange);
+        
+        // Center the range if it's smaller than minRange
+        const center = (ymin + ymax) / 2;
+        const yminAdjusted = center - dy / 2;
+        const ymaxAdjusted = center + dy / 2;
 
         const toX = t => ((t - t0) / dt) * w;
-        const toY = y => h - ((y - ymin) / dy) * h;
+        const toY = y => h - ((y - yminAdjusted) / dy) * h;
 
         // Численное (зелёное)
         ctx.beginPath();
