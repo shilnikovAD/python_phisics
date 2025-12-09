@@ -9,6 +9,11 @@ class PendulumSimulation {
         this.historyNum = [];
         this.historyAnalytic = [];
         this.maxHistoryPoints = 2000;
+        
+        // Graph Y-axis scaling constants
+        this.MIN_Y_RANGE = 0.02;
+        this.ANGLE_SCALE_FACTOR = 0.1;
+        
         // Pendulum properties (default)
         this.length = 1.0;
         this.angle = Math.PI / 4; // 45 degrees
@@ -362,13 +367,12 @@ class PendulumSimulation {
         const ymax = Math.max(...allY);
         
         // Set minimum range to prevent over-magnification of small oscillations
-        const minRange = Math.max(0.02, Math.abs(this.initialAngle) * 0.1);
-        let dy = Math.max(ymax - ymin, minRange);
+        const minRange = Math.max(this.MIN_Y_RANGE, Math.abs(this.initialAngle) * this.ANGLE_SCALE_FACTOR);
+        const dy = Math.max(ymax - ymin, minRange);
         
         // Center the range if it's smaller than minRange
         const center = (ymin + ymax) / 2;
         const yminAdjusted = center - dy / 2;
-        const ymaxAdjusted = center + dy / 2;
 
         const toX = t => ((t - t0) / dt) * w;
         const toY = y => h - ((y - yminAdjusted) / dy) * h;
