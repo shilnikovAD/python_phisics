@@ -9,6 +9,11 @@ class PendulumSimulation {
         this.historyNum = [];
         this.historyAnalytic = [];
         this.maxHistoryPoints = 2000;
+        
+        // Graph Y-axis scaling constants
+        this.MIN_Y_RANGE = 0.02;
+        this.ANGLE_SCALE_FACTOR = 0.1;
+        
         // Pendulum properties (default)
         this.length = 1.0;
         this.angle = Math.PI / 4; // 45 degrees
@@ -177,7 +182,7 @@ class PendulumSimulation {
                 this.shape = state.shape || this.shape;
                 this.bobSize = state.bobSize !== undefined ? state.bobSize : this.bobSize;
                 this.t_elapsed = state.time !== undefined ? state.time : this.t_elapsed;
-                this.initialAngle = state.analyticAngle !== undefined ? state.analyticAngle : this.initialAngle;
+                this.initialAngle = state.initialAngle !== undefined ? state.initialAngle : this.initialAngle;
                 this.updateInertia();
             }
         } catch (e) {
@@ -360,10 +365,17 @@ class PendulumSimulation {
         const allY = this.historyNum.concat(this.historyAnalytic);
         const ymin = Math.min(...allY);
         const ymax = Math.max(...allY);
-        const dy = (ymax - ymin) || 1;
+        
+        // Set minimum range to prevent over-magnification of small oscillations
+        const minRange = Math.max(this.MIN_Y_RANGE, Math.abs(this.initialAngle) * this.ANGLE_SCALE_FACTOR);
+        const dy = Math.max(ymax - ymin, minRange);
+        
+        // Center the range if it's smaller than minRange
+        const center = (ymin + ymax) / 2;
+        const yminAdjusted = center - dy / 2;
 
         const toX = t => ((t - t0) / dt) * w;
-        const toY = y => h - ((y - ymin) / dy) * h;
+        const toY = y => h - ((y - yminAdjusted) / dy) * h;
 
         // Численное (зелёное)
         ctx.beginPath();
@@ -437,6 +449,11 @@ class PendulumSimulation {
 
         this.errorSum = 0;
         this.errorSamples = 0;
+        
+        // Clear history arrays for accurate measurements
+        this.historyTime = [];
+        this.historyNum = [];
+        this.historyAnalytic = [];
 
         if (this.useApi) {
             fetch(`/api/reset?angle=${angle}&length=${length}&damping=${damping}` +
