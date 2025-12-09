@@ -177,7 +177,7 @@ class PendulumSimulation {
                 this.shape = state.shape || this.shape;
                 this.bobSize = state.bobSize !== undefined ? state.bobSize : this.bobSize;
                 this.t_elapsed = state.time !== undefined ? state.time : this.t_elapsed;
-                this.initialAngle = state.analyticAngle !== undefined ? state.analyticAngle : this.initialAngle;
+                this.initialAngle = state.initialAngle !== undefined ? state.initialAngle : this.initialAngle;
                 this.updateInertia();
             }
         } catch (e) {
@@ -437,6 +437,11 @@ class PendulumSimulation {
 
         this.errorSum = 0;
         this.errorSamples = 0;
+        
+        // Очистка истории для точных измерений
+        this.historyTime = [];
+        this.historyNum = [];
+        this.historyAnalytic = [];
 
         if (this.useApi) {
             fetch(`/api/reset?angle=${angle}&length=${length}&damping=${damping}` +
