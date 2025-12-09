@@ -28,13 +28,13 @@ class Pendulum:
         self.gravity = gravity
         self.damping = 0.01  # Small damping factor
         
-    def get_angular_acceleration(self):
-        """Calculate angular acceleration based on current state"""
-        return -(self.gravity / self.length) * math.sin(self.angle) - self.damping * self.angular_velocity
-    
     def _get_acceleration_at(self, angle, angular_velocity):
         """Calculate angular acceleration for given angle and velocity"""
         return -(self.gravity / self.length) * math.sin(angle) - self.damping * angular_velocity
+    
+    def get_angular_acceleration(self):
+        """Calculate angular acceleration based on current state"""
+        return self._get_acceleration_at(self.angle, self.angular_velocity)
     
     def update(self, dt=0.016):
         """
