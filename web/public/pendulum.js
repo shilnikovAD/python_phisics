@@ -98,36 +98,54 @@ class PendulumSimulation {
         }
     }
 
-    // Локальная физика (линейный маятник, метод Хойна)
+    // Локальная физика (Symplectic Euler - хорошее сохранение энергии)
     update(dt) {
         if (this.isPaused || dt <= 0) return;
 
         this.updateInertia();
 
-        // Используем sin(angle) для большей точности
-        const torque1 = -this.mass * this.gravity * this.length * Math.sin(this.angle);
-        const a1 = torque1 / this.I_total - this.damping * this.angularVelocity;
-        const w1 = this.angularVelocity;
-        const th1 = this.angle;
-
-        const wStar = w1 + a1 * dt;
-        const thStar = th1 + w1 * dt;
-
-        const torque2 = -this.mass * this.gravity * this.length * Math.sin(thStar);
-        const a2 = torque2 / this.I_total - this.damping * wStar;
-
-        this.angularVelocity = w1 + 0.5 * (a1 + a2) * dt;
-        this.angle = th1 + 0.5 * (w1 + wStar) * dt;
+        // Вычисляем гравитационный момент
+        const torque_gravity = -this.mass * this.gravity * this.length * Math.sin(this.angle);
+        const angular_acc_gravity = torque_gravity / this.I_total;
+        
+        // Обновляем скорость: сначала гравитация, затем демпфирование
+        // Для демпфирования используем аналитическое решение: v(t+dt) = v(t)*exp(-damping*dt)
+        if (this.damping > 0) {
+            // Сначала применяем гравитацию
+            this.angularVelocity += angular_acc_gravity * dt;
+            // Затем демпфирование (точная формула)
+            this.angularVelocity *= Math.exp(-this.damping * dt);
+        } else {
+            // Без демпфирования - просто обновляем от гравитации
+            this.angularVelocity += angular_acc_gravity * dt;
+        }
+        
+        // Обновляем угол с обновленной скоростью (симплектический шаг)
+        this.angle += this.angularVelocity * dt;
 
         this.t_elapsed += dt;
     }
 
-    // Аналитическое (малые колебания, с демпфированием)
+    // Аналитическое (малые колебания, с демпфированием и поправкой на амплитуду)
     analyticSolution(t = null) {
         if (t === null) t = this.t_elapsed;
         this.updateInertia();
-        const omega0 = Math.sqrt(Math.max(1e-12,
+        const omega0_linear = Math.sqrt(Math.max(1e-12,
             (this.mass * this.gravity * this.length) / this.I_total));
+
+        // Поправка частоты для больших амплитуд (приближение для нелинейного маятника)
+        let omega0;
+        const amplitude = Math.abs(this.initialAngle);
+        if (amplitude > 1e-6) {
+            // Приближенная поправка на нелинейность
+            // Для точной формулы нужны эллиптические интегралы, используем разложение
+            const k = Math.sin(amplitude / 2.0);  // модуль эллиптического интеграла
+            // Поправочный множитель к частоте (приближение 3-го порядка)
+            const freq_correction = 1.0 + (1.0/16.0)*amplitude**2 + (11.0/3072.0)*amplitude**4;
+            omega0 = omega0_linear / freq_correction;
+        } else {
+            omega0 = omega0_linear;
+        }
 
         const beta = 0.5 * this.damping;  // Исправлено: beta = damping/2
         const omega = Math.sqrt(Math.max(1e-12, omega0*omega0 - beta*beta));
