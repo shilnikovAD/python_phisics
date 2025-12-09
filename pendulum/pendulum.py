@@ -1,72 +1,112 @@
-"""
-Pendulum Physics Simulation Module
-Модуль симуляции физики маятника
-"""
 import math
 import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
+EPS = 1e-12
+
 class Pendulum:
-    """Class representing a simple pendulum / Класс простого маятника"""
-    
-    def __init__(self, length=1.0, mass=1.0, angle=0.5, angular_velocity=0.0, gravity=9.81):
-        """
-        Initialize pendulum with given parameters
-        
-        Args:
-            length: Length of pendulum in meters
-            mass: Mass of pendulum bob in kg
-            angle: Initial angle in radians
-            angular_velocity: Initial angular velocity in rad/s
-            gravity: Gravitational acceleration in m/s^2
-        """
+
+    def __init__(self, length=1.0, mass=1.0, angle=0.5, angular_velocity=0.0, gravity=9.81,
+                 damping=0.01, shape='point', bob_size=0.05):
         self.length = length
         self.mass = mass
         self.angle = angle
         self.angular_velocity = angular_velocity
         self.gravity = gravity
-        self.damping = 0.01  # Small damping factor
-        
+        self.damping = damping
+        self.shape = shape  # 'point', 'disk', 'rod'
+        self.bob_size = bob_size
+
+        self.t_elapsed = 0.0
+        self.initial_angle = angle
+        # I_total = I_cm + m * d^2,  d = self.length
+        self.I_cm = self._compute_I_cm()
+        self.I_total = max(EPS, self.I_cm + self.mass * (self.length ** 2))
+
+    def _compute_I_cm(self):
+        if self.shape == 'point':
+            return 0.0
+        elif self.shape == 'disk':
+            r = max(EPS, self.bob_size)
+            return 0.5 * self.mass * r * r
+        elif self.shape == 'sphere':
+            r = max(EPS, self.bob_size)
+            return 0.4 * self.mass * r * r
+        elif self.shape == 'rod':
+            # I_cm = (1/12) m L_rod^2
+            Lrod = max(EPS, self.bob_size)
+            return (1.0 / 12.0) * self.mass * (Lrod ** 2)
+        else:
+            return 0.0
+
+    def recompute_inertia(self):
+        self.I_cm = self._compute_I_cm()
+        self.I_total = max(EPS, self.I_cm + self.mass * (self.length ** 2))
+
     def get_angular_acceleration(self):
-        """Calculate angular acceleration based on current state"""
-        return -(self.gravity / self.length) * math.sin(self.angle) - self.damping * self.angular_velocity
-    
+        torque_gravity = - self.mass * self.gravity * self.length * math.sin(self.angle)
+        angular_acc = torque_gravity / self.I_total
+        angular_acc -= self.damping * self.angular_velocity
+        return angular_acc
+
     def update(self, dt=0.016):
-        """
-        Update pendulum state using Euler method
-        
-        Args:
-            dt: Time step in seconds
-        """
         angular_acceleration = self.get_angular_acceleration()
         self.angular_velocity += angular_acceleration * dt
         self.angle += self.angular_velocity * dt
-        
+        self.t_elapsed += dt
+
     def get_position(self):
-        """Get (x, y) position of pendulum bob"""
+        """Get (x, y) position of pendulum center of mass"""
         x = self.length * math.sin(self.angle)
         y = self.length * math.cos(self.angle)
         return (x, y)
-    
+
+    def analytic_solution(self, t=None):
+        if t is None:
+            t = self.t_elapsed
+        omega0 = math.sqrt(max(EPS, (self.mass * self.gravity * self.length) / self.I_total))
+        theta_analytic = self.initial_angle * math.cos(omega0 * t)
+        omega_analytic = - self.initial_angle * omega0 * math.sin(omega0 * t)
+        return theta_analytic, omega_analytic, omega0
+
+    def match_percent(self):
+        theta_analytic, _, _ = self.analytic_solution()
+        # Use initial amplitude for normalization (fallback to small value)
+        amplitude_ref = max(abs(self.initial_angle), 1e-3)
+        error = abs(self.angle - theta_analytic)
+        norm_error = error / amplitude_ref
+        similarity = max(0.0, 100.0 * (1.0 - norm_error))
+        # clamp
+        similarity = min(100.0, similarity)
+        return similarity
+
     def get_state(self):
-        """Get current state as dictionary"""
         x, y = self.get_position()
+        theta_analytic, omega_analytic, omega0 = self.analytic_solution()
         return {
             "angle": self.angle,
             "angularVelocity": self.angular_velocity,
             "x": x,
             "y": y,
             "length": self.length,
-            "mass": self.mass
+            "mass": self.mass,
+            "damping": self.damping,
+            "shape": self.shape,
+            "bobSize": self.bob_size,
+            "I_cm": self.I_cm,
+            "I_total": self.I_total,
+            "analyticAngle": theta_analytic,
+            "analyticAngularVelocity": omega_analytic,
+            "analyticOmega0": omega0,
+            "matchPercent": self.match_percent(),
+            "time": self.t_elapsed
         }
 
 
 class PendulumAPIHandler(BaseHTTPRequestHandler):
-    """HTTP Request Handler for Pendulum API"""
-    
     pendulum = Pendulum(length=1.0, angle=0.8)
-    
+
     def _set_headers(self, content_type='application/json'):
         self.send_response(200)
         self.send_header('Content-type', content_type)
@@ -74,52 +114,65 @@ class PendulumAPIHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
-        
+
     def do_OPTIONS(self):
         self._set_headers()
-        
+
     def do_GET(self):
         parsed_path = urlparse(self.path)
-        
+
         if parsed_path.path == '/api/state':
-            # Update and return current state
-            self.pendulum.update()
+            self.pendulum.update(dt=0.016)
             self._set_headers()
             self.wfile.write(json.dumps(self.pendulum.get_state()).encode())
-            
+
         elif parsed_path.path == '/api/reset':
-            # Reset pendulum with optional parameters
             query = parse_qs(parsed_path.query)
             try:
                 angle = float(query.get('angle', [0.8])[0])
                 length = float(query.get('length', [1.0])[0])
-                # Validate parameters
-                angle = max(-math.pi, min(math.pi, angle))  # Clamp angle to [-π, π]
-                length = max(0.1, min(10.0, length))  # Clamp length to [0.1, 10.0]
+                mass = float(query.get('mass', [1.0])[0])
+                damping = float(query.get('damping', [0.01])[0])
+                shape = query.get('shape', ['point'])[0]
+                bob_size = float(query.get('bobSize', [0.05])[0])
+                angle = max(-math.pi, min(math.pi, angle))
+                length = max(0.01, min(10.0, length))
+                mass = max(0.001, min(100.0, mass))
+                damping = max(0.0, min(1.0, damping))
+                if shape not in ('point', 'disk', 'rod', 'sphere'):
+                    shape = 'point'
+                bob_size = max(1e-4, min(10.0, bob_size))
             except (ValueError, TypeError):
                 angle = 0.8
                 length = 1.0
-            self.pendulum = Pendulum(length=length, angle=angle)
+                mass = 1.0
+                damping = 0.01
+                shape = 'point'
+                bob_size = 0.05
+
+            self.pendulum = Pendulum(length=length, mass=mass, angle=angle,
+                                     angular_velocity=0.0, damping=damping,
+                                     shape=shape, bob_size=bob_size)
             PendulumAPIHandler.pendulum = self.pendulum
             self._set_headers()
             self.wfile.write(json.dumps({"status": "reset", "state": self.pendulum.get_state()}).encode())
-            
+
         elif parsed_path.path == '/api/info':
             self._set_headers()
             info = {
                 "name": "Pendulum Physics API",
-                "version": "1.0.0",
-                "endpoints": ["/api/state", "/api/reset", "/api/info"]
+                "version": "1.1.1",
+                "endpoints": ["/api/state", "/api/reset", "/api/info"],
+                "notes": "Supports physical pendulum shapes: point, disk, rod, sphere. 'bobSize' param used for radius or rod length."
             }
             self.wfile.write(json.dumps(info).encode())
-            
+
         else:
             self.send_response(404)
             self.end_headers()
 
 
 def run_server(port=8000):
-    """Run the pendulum API server"""
     server_address = ('', port)
     httpd = HTTPServer(server_address, PendulumAPIHandler)
     print(f'Pendulum API server running on http://localhost:{port}')
