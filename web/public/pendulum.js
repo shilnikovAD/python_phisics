@@ -2,7 +2,13 @@ class PendulumSimulation {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
-
+        this.graphCanvas = document.getElementById('graphCanvas');
+        this.graphCtx = this.graphCanvas.getContext('2d');
+        this.timeStep = 0.002;
+        this.historyTime = [];
+        this.historyNum = [];
+        this.historyAnalytic = [];
+        this.maxHistoryPoints = 2000;
         // Pendulum properties (default)
         this.length = 1.0;
         this.angle = Math.PI / 4; // 45 degrees
@@ -14,56 +20,44 @@ class PendulumSimulation {
 
         // Shape properties
         this.shape = 'point'; // 'point', 'disk', 'sphere', 'rod'
-        this.bobSize = 0.05; // radius for disk/sphere, length for rod
+        this.bobSize = 0.05;  // radius for disk/sphere, length for rod
 
-        // Derived inertia
+        // Inertia
         this.I_cm = this.computeIcm();
         this.I_total = Math.max(1e-12, this.I_cm + this.mass * this.length * this.length);
 
-        // Visualization properties
+        // Visualization
         this.pivotX = this.canvas.width / 2;
         this.pivotY = 100;
         this.scale = 180; // pixels per meter
         this.bobRadiusVisual = 25;
 
-        // Trail for visual effect
+        // Trail
         this.trail = [];
         this.maxTrailLength = 50;
 
-        // Control state
+        // State
         this.isPaused = false;
         this.useApi = false;
         this.lastTime = performance.now();
         this.t_elapsed = 0;
 
-        // Measurement state (for averaging match percent over N oscillations)
-        this.measuring = false;
-        this.measureTargetOscillations = 0;
-        this.peakCount = 0;
-        this.prevAngularVelocity = 0;
-        this.measureSamples = 0;
-        this.measureSum = 0;
+        // Ошибка (для одной текущей оценки, если захочешь выводить)
+        this.errorSum = 0;
+        this.errorSamples = 0;
 
-        // Try to connect to Python API
+        // Подключение к API
         this.checkApiConnection();
 
-        // Start animation
+        // Старт анимации
         this.animate();
     }
 
     computeIcm() {
         if (this.shape === 'point') return 0;
-        if (this.shape === 'disk') {
-            // solid cylinder about center axis
-            return 0.5 * this.mass * this.bobSize * this.bobSize;
-        }
-        if (this.shape === 'sphere') {
-            return 0.4 * this.mass * this.bobSize * this.bobSize;
-        }
-        if (this.shape === 'rod') {
-            // thin rod about center perpendicular to length
-            return (1/12) * this.mass * this.bobSize * this.bobSize;
-        }
+        if (this.shape === 'disk')  return 0.5 * this.mass * this.bobSize * this.bobSize;
+        if (this.shape === 'sphere') return 0.4 * this.mass * this.bobSize * this.bobSize;
+        if (this.shape === 'rod')    return (1/12) * this.mass * this.bobSize * this.bobSize;
         return 0;
     }
 
@@ -89,6 +83,7 @@ class PendulumSimulation {
 
     updateModeIndicator(usingApi) {
         const indicator = document.getElementById('modeIndicator');
+        if (!indicator) return;
         if (usingApi) {
             indicator.className = 'mode-indicator mode-api';
             indicator.textContent = 'Режим Python API';
@@ -98,42 +93,73 @@ class PendulumSimulation {
         }
     }
 
-    // Physics calculation (local simulation) - physical pendulum
+    // Локальная физика (линейный маятник, метод Хойна)
     update(dt) {
-        if (this.isPaused) return;
+        if (this.isPaused || dt <= 0) return;
 
-        // Ensure inertia up-to-date
         this.updateInertia();
 
-        // angular acceleration: α = torque / I_total
-        const torque_gravity = - this.mass * this.gravity * this.length * Math.sin(this.angle);
-        const angularAcceleration = torque_gravity / this.I_total - this.damping * this.angularVelocity;
+        // Используем sin(angle) для большей точности
+        const torque1 = -this.mass * this.gravity * this.length * Math.sin(this.angle);
+        const a1 = torque1 / this.I_total - this.damping * this.angularVelocity;
+        const w1 = this.angularVelocity;
+        const th1 = this.angle;
 
-        // Euler integration
-        this.angularVelocity += angularAcceleration * dt;
-        this.angle += this.angularVelocity * dt;
+        const wStar = w1 + a1 * dt;
+        const thStar = th1 + w1 * dt;
+
+        const torque2 = -this.mass * this.gravity * this.length * Math.sin(thStar);
+        const a2 = torque2 / this.I_total - this.damping * wStar;
+
+        this.angularVelocity = w1 + 0.5 * (a1 + a2) * dt;
+        this.angle = th1 + 0.5 * (w1 + wStar) * dt;
+
         this.t_elapsed += dt;
     }
 
-    // Analytic (linearized) solution for small angles: θ(t) = θ0 * cos(ω0 * t)
+    // Аналитическое (малые колебания, с демпфированием)
     analyticSolution(t = null) {
         if (t === null) t = this.t_elapsed;
         this.updateInertia();
-        const omega0 = Math.sqrt(Math.max(1e-12, (this.mass * this.gravity * this.length) / this.I_total));
-        const theta_analytic = this.initialAngle * Math.cos(omega0 * t);
-        const omega_analytic = - this.initialAngle * omega0 * Math.sin(omega0 * t);
-        return { theta_analytic, omega_analytic, omega0 };
+        const omega0 = Math.sqrt(Math.max(1e-12,
+            (this.mass * this.gravity * this.length) / this.I_total));
+
+        const beta = 0.5 * this.damping;  // Исправлено: beta = damping/2
+        const omega = Math.sqrt(Math.max(1e-12, omega0*omega0 - beta*beta));
+
+        if (omega0*omega0 - beta*beta <= 0) {
+            // Апериодический режим
+            const gamma1 = -beta + Math.sqrt(beta*beta - omega0*omega0);
+            const gamma2 = -beta - Math.sqrt(beta*beta - omega0*omega0);
+            const A = this.initialAngle * gamma2 / (gamma2 - gamma1);
+            const B = this.initialAngle * gamma1 / (gamma1 - gamma2);
+            const theta_analytic = A * Math.exp(gamma1 * t) + B * Math.exp(gamma2 * t);
+            const omega_analytic = A * gamma1 * Math.exp(gamma1 * t) + B * gamma2 * Math.exp(gamma2 * t);
+
+            return { theta_analytic, omega_analytic, omega0: omega0 };
+        }
+
+        // Колебательный режим
+        const decay = Math.exp(-beta * t);
+        const theta_analytic = this.initialAngle * decay * Math.cos(omega * t);
+        const omega_analytic =
+            - this.initialAngle * decay *
+            (beta * Math.cos(omega * t) + omega * Math.sin(omega * t));
+
+        return { theta_analytic, omega_analytic, omega0: omega };
     }
 
+    // Мгновенная "точность" (можно просто показывать под цифрами)
     matchPercent() {
-        // New: normalize error by initial amplitude (initialAngle) to avoid instability near theta_analytic ~ 0
         const { theta_analytic } = this.analyticSolution();
         const amplitudeRef = Math.max(Math.abs(this.initialAngle), 1e-3);
         const error = Math.abs(this.angle - theta_analytic);
-        const normError = error / amplitudeRef;
-        let similarity = Math.max(0, 100 * (1 - normError));
-        similarity = Math.max(0, Math.min(100, similarity));
-        return similarity;
+        const norm = error / amplitudeRef;
+
+        if (norm <= 0.1) return 100;
+        const clipped = Math.min(norm, 0.5);
+        const similarity = 100 * (1 - (clipped - 0.1) / 0.4);
+        return Math.max(0, similarity);
     }
 
     async updateFromApi() {
@@ -143,7 +169,6 @@ class PendulumSimulation {
             const response = await fetch('/api/state');
             if (response.ok) {
                 const state = await response.json();
-                // Use server-side values
                 this.angle = state.angle;
                 this.angularVelocity = state.angularVelocity;
                 this.length = state.length;
@@ -156,7 +181,6 @@ class PendulumSimulation {
                 this.updateInertia();
             }
         } catch (e) {
-            // Fallback to local simulation
             this.useApi = false;
             this.updateModeIndicator(false);
         }
@@ -167,6 +191,8 @@ class PendulumSimulation {
         const y = this.length * Math.cos(this.angle);
         return { x, y };
     }
+
+
 
     getCanvasPosition() {
         const pos = this.getPosition();
@@ -180,17 +206,12 @@ class PendulumSimulation {
         const ctx = this.ctx;
         const { x: bobX, y: bobY } = this.getCanvasPosition();
 
-        // Clear canvas with fade effect for trail
         ctx.fillStyle = 'rgba(15, 15, 26, 0.3)';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Update trail
         this.trail.push({ x: bobX, y: bobY });
-        if (this.trail.length > this.maxTrailLength) {
-            this.trail.shift();
-        }
+        if (this.trail.length > this.maxTrailLength) this.trail.shift();
 
-        // Draw trail
         if (this.trail.length > 1) {
             ctx.beginPath();
             ctx.moveTo(this.trail[0].x, this.trail[0].y);
@@ -202,7 +223,6 @@ class PendulumSimulation {
             ctx.stroke();
         }
 
-        // Draw pivot point
         ctx.beginPath();
         ctx.arc(this.pivotX, this.pivotY, 10, 0, Math.PI * 2);
         ctx.fillStyle = '#888';
@@ -211,7 +231,6 @@ class PendulumSimulation {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Draw rod / line
         ctx.beginPath();
         ctx.moveTo(this.pivotX, this.pivotY);
         ctx.lineTo(bobX, bobY);
@@ -219,12 +238,10 @@ class PendulumSimulation {
         ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Draw bob according to shape
         if (this.shape === 'rod') {
-            // Draw a thin rectangle (rod) centered at bob position, oriented along rod
-            const rodLen = this.bobSize * this.scale; // visualize using bobSize as rod length
+            const rodLen = this.bobSize * this.scale;
             const rodWidth = Math.max(4, this.bobRadiusVisual / 3);
-            const angle = this.angle + Math.PI / 2; // align rod perpendicular to radius for visual
+            const angle = this.angle + Math.PI / 2;
             ctx.save();
             ctx.translate(bobX, bobY);
             ctx.rotate(angle);
@@ -235,7 +252,6 @@ class PendulumSimulation {
             ctx.strokeRect(-rodLen / 2, -rodWidth / 2, rodLen, rodWidth);
             ctx.restore();
         } else {
-            // disk / sphere / point drawn as circle
             const radiusPixels = Math.max(6, this.bobSize * this.scale);
             const gradient = ctx.createRadialGradient(bobX - 8, bobY - 8, 0, bobX, bobY, radiusPixels);
             gradient.addColorStop(0, '#8BC34A');
@@ -251,15 +267,15 @@ class PendulumSimulation {
             ctx.stroke();
         }
 
-        // Draw angle arc
         ctx.beginPath();
         ctx.moveTo(this.pivotX, this.pivotY);
-        ctx.arc(this.pivotX, this.pivotY, 40, Math.PI / 2 - this.angle, Math.PI / 2, this.angle > 0);
+        ctx.arc(this.pivotX, this.pivotY, 40,
+                Math.PI / 2 - this.angle, Math.PI / 2,
+                this.angle > 0);
         ctx.closePath();
         ctx.fillStyle = 'rgba(33, 150, 243, 0.3)';
         ctx.fill();
 
-        // Update stats display
         this.updateStats();
     }
 
@@ -280,64 +296,130 @@ class PendulumSimulation {
         document.getElementById('matchPercent').textContent =
             this.matchPercent().toFixed(1) + '%';
 
-        // Measurement UI update
-        if (this.measuring) {
-            const status = document.getElementById('measurementStatus');
-            const resultBox = document.getElementById('measurementResult');
-            const oscDone = Math.floor(this.peakCount / 2);
-            status.textContent = `Measuring... ${oscDone} / ${this.measureTargetOscillations} oscillations`;
-            resultBox.textContent = `${(this.measureSum / Math.max(1, this.measureSamples)).toFixed(2)}% (in progress)`;
+        // Лог для отладки
+        const { theta_analytic } = this.analyticSolution();
+        if (Math.random() < 0.01) {
+            console.log('angle=', this.angle, 'analytic=', theta_analytic);
         }
     }
 
     animate() {
         const currentTime = performance.now();
-        const dt = Math.min((currentTime - this.lastTime) / 1000, 0.05);
+        const delta = currentTime - this.lastTime;
         this.lastTime = currentTime;
 
         if (this.useApi) {
-            this.updateFromApi()
+            this.updateFromApi();
         } else {
-            this.update(dt);
+            // Используем фиксированный временной шаг для стабильности
+            const fixedTimeStep = this.timeStep; // 0.002 секунды
+
+            // Обновляем физику несколько раз, если нужно
+            let accumulatedTime = delta / 1000; // переводим в секунды
+            const maxSteps = 10; // ограничим максимальное количество шагов
+
+            let steps = 0;
+            while (accumulatedTime > 0 && steps < maxSteps) {
+                const dt = Math.min(fixedTimeStep, accumulatedTime);
+                this.update(dt);
+                accumulatedTime -= dt;
+                steps++;
+            }
+        }
+        // Запись в историю для графика
+        const { theta_analytic } = this.analyticSolution();
+        this.historyTime.push(this.t_elapsed);
+        this.historyNum.push(this.angle);
+        this.historyAnalytic.push(theta_analytic);
+
+        // Ограничиваем историю
+        if (this.historyTime.length > this.maxHistoryPoints) {
+            this.historyTime.shift();
+            this.historyNum.shift();
+            this.historyAnalytic.shift();
         }
 
-        this._measurementStep();
-
         this.draw();
+        this.drawGraphs();
         requestAnimationFrame(() => this.animate());
     }
 
-    _measurementStep() {
-        if (!this.measuring || this.isPaused) {
-            this.prevAngularVelocity = this.angularVelocity;
-            return;
+    drawGraphs() {
+        const ctx = this.graphCtx;
+        const w = this.graphCanvas.width;
+        const h = this.graphCanvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        if (this.historyTime.length < 2) return;
+
+        const t0 = this.historyTime[0];
+        const t1 = this.historyTime[this.historyTime.length - 1];
+        const dt = t1 - t0 || 1;
+
+        const allY = this.historyNum.concat(this.historyAnalytic);
+        const ymin = Math.min(...allY);
+        const ymax = Math.max(...allY);
+        const dy = (ymax - ymin) || 1;
+
+        const toX = t => ((t - t0) / dt) * w;
+        const toY = y => h - ((y - ymin) / dy) * h;
+
+        // Численное (зелёное)
+        ctx.beginPath();
+        this.historyNum.forEach((y, i) => {
+            const x = toX(this.historyTime[i]);
+            const yy = toY(y);
+            if (i === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+        });
+        ctx.strokeStyle = '#4CAF50';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Аналитическое (синее)
+        ctx.beginPath();
+        this.historyAnalytic.forEach((y, i) => {
+            const x = toX(this.historyTime[i]);
+            const yy = toY(y);
+            if (i === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+        });
+        ctx.strokeStyle = '#2196F3';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    computeAccuracy() {
+        const n = this.historyNum.length;
+        if (n < 10) return null; // нужно минимум 10 точек для анализа
+
+        const amp = Math.max(Math.abs(this.initialAngle), 1e-3);
+
+        let sumSq = 0;
+        let maxError = 0;
+        let validPoints = 0;
+
+        for (let i = 0; i < n; i++) {
+            // Игнорируем точки, где аналитическое решение NaN
+            if (!isNaN(this.historyAnalytic[i])) {
+                const err = (this.historyNum[i] - this.historyAnalytic[i]) / amp;
+                sumSq += err * err;
+                maxError = Math.max(maxError, Math.abs(err));
+                validPoints++;
+            }
         }
 
-        const analytic = this.analyticSolution();
-        const theta_analytic = analytic.theta_analytic;
-        const theta0 = Math.max(Math.abs(this.initialAngle), 1e-3);
-        const sampleThreshold = 0.05 * theta0;
+        if (validPoints < 5) return null;
 
-        if (Math.abs(theta_analytic) >= sampleThreshold) {
-            const mp = this.matchPercent();
-            this.measureSum += mp;
-            this.measureSamples += 1;
-        }
+        const rms = Math.sqrt(sumSq / validPoints);
+        // Более реалистичная формула для схожести
+        const similarity = Math.max(0, 100 * (1 - Math.min(rms, 1)));
 
-        if (this.prevAngularVelocity > 0 && this.angularVelocity <= 0) {
-            this.peakCount += 1;
-        }
-        this.prevAngularVelocity = this.angularVelocity;
-
-        const completedOscillations = Math.floor(this.peakCount / 2);
-        if (completedOscillations >= this.measureTargetOscillations && this.measureTargetOscillations > 0) {
-            this.measuring = false;
-            const avg = this.measureSum / Math.max(1, this.measureSamples);
-            const status = document.getElementById('measurementStatus');
-            const resultBox = document.getElementById('measurementResult');
-            status.textContent = `Done — measured over ${completedOscillations} oscillations`;
-            resultBox.textContent = `${avg.toFixed(2)}% average match`;
-        }
+        return {
+            rms,
+            similarity,
+            maxError,
+            points: validPoints
+        };
     }
 
     reset(angle, length, damping, shape, bobSize, mass) {
@@ -353,41 +435,14 @@ class PendulumSimulation {
         this.t_elapsed = 0;
         this.updateInertia();
 
-        this.measuring = false;
-        this.peakCount = 0;
-        this.prevAngularVelocity = 0;
-        this.measureSamples = 0;
-        this.measureSum = 0;
-        this.measureTargetOscillations = 0;
-        document.getElementById('measurementStatus').textContent = 'Статус: ожидание';
-        document.getElementById('measurementResult').textContent = '—';
+        this.errorSum = 0;
+        this.errorSamples = 0;
 
-        // Also reset on API if connected
         if (this.useApi) {
-            fetch(`/api/reset?angle=${angle}&length=${length}&damping=${damping}&shape=${shape}&bobSize=${this.bobSize}&mass=${this.mass}`)
+            fetch(`/api/reset?angle=${angle}&length=${length}&damping=${damping}` +
+                  `&shape=${shape}&bobSize=${this.bobSize}&mass=${this.mass}`)
                 .catch(err => console.warn('Failed to reset via API:', err));
         }
-    }
-
-    startMeasurement(nOscillations) {
-        this.measuring = true;
-        this.measureTargetOscillations = Math.max(1, Math.floor(nOscillations));
-        this.peakCount = 0;
-        this.prevAngularVelocity = this.angularVelocity;
-        this.measureSamples = 0;
-        this.measureSum = 0;
-        const status = document.getElementById('measurementStatus');
-        const resultBox = document.getElementById('measurementResult');
-        status.textContent = `Measuring... 0 / ${this.measureTargetOscillations} oscillations`;
-        resultBox.textContent = 'starting...';
-    }
-
-    stopMeasurement() {
-        this.measuring = false;
-        const status = document.getElementById('measurementStatus');
-        const resultBox = document.getElementById('measurementResult');
-        status.textContent = `Measurement cancelled`;
-        resultBox.textContent = '—';
     }
 
     togglePause() {
@@ -396,9 +451,14 @@ class PendulumSimulation {
     }
 }
 
+// Инициализация UI
 document.addEventListener('DOMContentLoaded', () => {
     const simulation = new PendulumSimulation('pendulumCanvas');
 
+    // Элементы управления
+    const measureBtn = document.getElementById('measureBtn');
+    const measurementStatus = document.getElementById('measurementStatus');
+    const measurementResult = document.getElementById('measurementResult');
     const lengthInput = document.getElementById('lengthInput');
     const angleInput = document.getElementById('angleInput');
     const dampingInput = document.getElementById('dampingInput');
@@ -406,11 +466,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const bobSizeInput = document.getElementById('bobSizeInput');
     const resetBtn = document.getElementById('resetBtn');
     const pauseBtn = document.getElementById('pauseBtn');
+    const oscillationCountInput = document.getElementById('oscillationCountInput');
 
-    const oscCountInput = document.getElementById('oscCountInput');
-    const measureBtn = document.getElementById('measureBtn');
-
-    // Validate and clamp input values
     function validateInput(input, min, max) {
         let value = parseFloat(input.value);
         if (isNaN(value)) value = parseFloat(input.defaultValue);
@@ -426,7 +483,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const shape = shapeSelect.value;
         const bobSize = validateInput(bobSizeInput, 0.001, 5);
         const angle = angleDeg * Math.PI / 180;
+
         simulation.reset(angle, length, damping, shape, bobSize);
+
+        // Очищаем предыдущие измерения
+        measurementStatus.textContent = 'Статус: ожидание измерений';
+        measurementResult.textContent = '—';
     });
 
     pauseBtn.addEventListener('click', () => {
@@ -435,14 +497,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     measureBtn.addEventListener('click', () => {
-        // If currently measuring, stop
-        if (simulation.measuring) {
-            simulation.stopMeasurement();
-            measureBtn.textContent = 'Начать измерение';
-            return;
-        }
-        const n = Math.max(1, Math.floor(parseInt(oscCountInput.value) || 1));
-        simulation.startMeasurement(n);
-        measureBtn.textContent = 'Остановить';
+        const nOscillations = parseInt(oscillationCountInput.value) || 5;
+
+        // Ждем небольшое время для накопления данных
+        setTimeout(() => {
+            const accuracy = simulation.computeAccuracy();
+
+            if (!accuracy) {
+                measurementStatus.textContent = 'Статус: недостаточно данных';
+                measurementResult.textContent = '—';
+                return;
+            }
+
+            measurementStatus.textContent = `Статус: измерено по ${nOscillations} колебаниям`;
+            measurementResult.textContent =
+                `${accuracy.similarity.toFixed(2)}% (RMS ошибка = ${accuracy.rms.toFixed(6)})`;
+
+            // Визуальная обратная связь
+            if (accuracy.similarity > 95) {
+                measurementResult.style.color = '#2E7D32';
+            } else if (accuracy.similarity > 80) {
+                measurementResult.style.color = '#FF9800';
+            } else {
+                measurementResult.style.color = '#D32F2F';
+            }
+        }, 100);
     });
 });

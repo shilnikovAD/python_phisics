@@ -1,283 +1,211 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Демо маятника</title>
+    <title>Физический маятник</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            min-height: 100vh;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
         }
-        
-        h1 {
-            margin-bottom: 20px;
-            text-align: center;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-        
         .container {
             display: flex;
-            flex-wrap: wrap;
             gap: 20px;
-            justify-content: center;
             max-width: 1200px;
+            margin: 0 auto;
         }
-        
-        .canvas-container {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-        }
-        
-        canvas {
-            background: #0f0f1a;
-            border-radius: 10px;
-            display: block;
-        }
-        
         .controls {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
+            flex: 1;
+            background: white;
             padding: 20px;
-            backdrop-filter: blur(10px);
-            min-width: 320px;
-        }
-        
-        .control-group {
-            margin-bottom: 12px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-        
-        input[type="number"], select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 2px solid #333;
             border-radius: 8px;
-            background: rgba(0, 0, 0, 0.3);
-            color: #fff;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
-        input[type="number"]:focus {
-            border-color: #4CAF50;
-        }
-        
-        .input-hint {
-            font-size: 12px;
-            color: #888;
-            margin-top: 5px;
-        }
-        
-        button {
-            width: 100%;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 10px;
-        }
-        
-        .btn-primary {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-        }
-        
-        .btn-secondary {
-            background: #2196F3;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #1976D2;
-            transform: translateY(-2px);
-        }
-        
-        .stats {
-            background: rgba(0,0,0,0.3);
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 10px;
-        }
-        
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .stat-row:last-child {
-            border-bottom: none;
-        }
-        
-        .stat-label {
-            color: #aaa;
-        }
-        
-        .stat-value {
-            font-weight: bold;
-            color: #4CAF50;
-        }
-        
-        .mode-indicator {
-            text-align: center;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-weight: bold;
-        }
-        
-        .mode-api {
-            background: rgba(76, 175, 80, 0.3);
-            border: 1px solid #4CAF50;
-        }
-        
-        .mode-local {
-            background: rgba(255, 152, 0, 0.3);
-            border: 1px solid #FF9800;
-        }
-
-        .measurement {
-            margin-top: 12px;
-            padding: 10px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 8px;
-            min-height: 48px;
+        .simulation {
+            flex: 2;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            gap: 20px;
         }
-
-        .measurement .title {
-            font-size: 14px;
-            color: #bbb;
-            margin-bottom: 6px;
-            text-align: center;
+        .canvas-container {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .measurement .result {
-            font-size: 18px;
+        canvas {
+            display: block;
+            border: 1px solid #ddd;
+        }
+        .stats {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
             font-weight: bold;
-            color: #fff;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .measurement {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .mode-indicator {
+            padding: 10px;
+            border-radius: 4px;
             text-align: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .mode-api {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .mode-local {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .value-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .value-input input {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        .unit {
+            color: #666;
+            font-size: 14px;
+            white-space: nowrap;
         }
     </style>
 </head>
 <body>
-    <h1>Демо маятника</h1>
-
     <div class="container">
-        <div class="canvas-container">
-            <canvas id="pendulumCanvas" width="500" height="500"></canvas>
-        </div>
-
         <div class="controls">
+            <h2>Физический маятник</h2>
+
             <div id="modeIndicator" class="mode-indicator mode-local">
-                Cимуляция
+                Локальная симуляция
             </div>
 
             <div class="control-group">
                 <label for="lengthInput">Длина (m)</label>
-                <input type="number" id="lengthInput" min="0.1" max="10" step="0.1" value="1">
-                <div class="input-hint">от 0.1 до 10 м — расстояние до центра масс</div>
+                <div class="value-input">
+                    <input type="number" id="lengthInput" min="0.1" max="10" step="0.1" value="1.0">
+                    <span class="unit">m</span>
+                </div>
             </div>
 
             <div class="control-group">
                 <label for="angleInput">Начальный угол (°)</label>
-                <input type="number" id="angleInput" min="-180" max="180" step="1" value="45">
-                <div class="input-hint">от -180° до 180°</div>
+                <div class="value-input">
+                    <input type="number" id="angleInput" min="-180" max="180" step="1" value="10">
+                    <span class="unit">°</span>
+                </div>
             </div>
 
             <div class="control-group">
                 <label for="dampingInput">Затухание</label>
-                <input type="number" id="dampingInput" min="0" max="1" step="0.001" value="0.01">
-                <div class="input-hint">от 0 до 1</div>
+                <div class="value-input">
+                    <input type="number" id="dampingInput" min="0" max="1" step="0.01" value="0">
+                </div>
             </div>
 
             <div class="control-group">
                 <label for="shapeSelect">Форма груза</label>
                 <select id="shapeSelect">
-                    <option value="point">Точечная масса (шар)</option>
-                    <option value="disk">Диск (цилиндр)</option>
+                    <option value="point">Точечная масса</option>
+                    <option value="disk">Диск</option>
                     <option value="sphere">Шар</option>
                     <option value="rod">Стержень</option>
                 </select>
-                <div class="input-hint">Выберите форму груза для физического маятника</div>
             </div>
 
             <div class="control-group">
                 <label for="bobSizeInput">Размер груза (м)</label>
-                <input type="number" id="bobSizeInput" min="0.001" max="5" step="0.001" value="0.05">
-                <div class="input-hint">Радиус для диска/шара, длина для стержня (м)</div>
+                <div class="value-input">
+                    <input type="number" id="bobSizeInput" min="0.001" max="5" step="0.001" value="0.05">
+                    <span class="unit">m</span>
+                </div>
             </div>
 
-            <button id="resetBtn" class="btn-primary">Сброс</button>
-            <button id="pauseBtn" class="btn-secondary">Пауза</button>
+            <button id="resetBtn">Сброс</button>
+            <button id="pauseBtn">Пауза</button>
 
-            <!-- New controls for measurement -->
-            <div class="control-group">
-                <label for="oscCountInput">Измерить за N колебаний</label>
-                <input type="number" id="oscCountInput" min="1" max="1000" step="1" value="5">
-                <div class="input-hint">Введите количество колебаний, по которым усреднить точность</div>
+            <div class="measurement">
+                <h3>Измерить за N колебаний</h3>
+                <input type="number" id="oscillationCountInput" min="1" max="100" value="5">
+                <button id="measureBtn">Начать измерение</button>
+                <p id="measurementStatus">Статус: измерено по всей истории</p>
+                <p id="measurementResult">0.00% (RMS ошибка = 2.398)</p>
             </div>
-            <button id="measureBtn" class="btn-primary">Начать измерение</button>
+        </div>
 
-            <div class="measurement" id="measurementBox">
-                <div class="title" id="measurementStatus">Статус: ожидание</div>
-                <div class="result" id="measurementResult">—</div>
+        <div class="simulation">
+            <div class="canvas-container">
+                <canvas id="pendulumCanvas" width="600" height="400"></canvas>
             </div>
-            
+
+            <div class="canvas-container">
+                <canvas id="graphCanvas" width="600" height="200"></canvas>
+            </div>
+
             <div class="stats">
-                <div class="stat-row">
-                    <span class="stat-label">Угол:</span>
-                    <span class="stat-value" id="currentAngle">0°</span>
+                <div>
+                    <strong>Текущий угол:</strong><br>
+                    <span id="currentAngle">0.0°</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">Скорость:</span>
-                    <span class="stat-value" id="currentVelocity">0 rad/s</span>
+                <div>
+                    <strong>Угловая скорость:</strong><br>
+                    <span id="currentVelocity">0.00 rad/s</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">X:</span>
-                    <span class="stat-value" id="currentX">0 m</span>
+                <div>
+                    <strong>Позиция X:</strong><br>
+                    <span id="currentX">0.000 m</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">Y:</span>
-                    <span class="stat-value" id="currentY">0 m</span>
+                <div>
+                    <strong>Позиция Y:</strong><br>
+                    <span id="currentY">-1.000 m</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">Аналитический θ:</span>
-                    <span class="stat-value" id="analyticAngle">0°</span>
+                <div>
+                    <strong>Аналитический угол:</strong><br>
+                    <span id="analyticAngle">0.0°</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-label">Совпадение %:</span>
-                    <span class="stat-value" id="matchPercent">100%</span>
+                <div>
+                    <strong>Совпадение:</strong><br>
+                    <span id="matchPercent">100.0%</span>
                 </div>
             </div>
         </div>
