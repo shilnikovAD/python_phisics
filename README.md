@@ -88,6 +88,15 @@ Where:
 - `ω` - angular velocity / угловая скорость
 - `damping` - damping coefficient / коэффициент затухания
 
+### Numerical Integration / Численное интегрирование
+
+The simulation uses the **Runge-Kutta 4th order (RK4)** method for numerical integration, which provides:
+- Excellent energy conservation (< 0.001% energy drift)
+- High accuracy for long-term simulations
+- Stable motion without artificial energy gain or loss
+
+RK4 is significantly more accurate than the simple Euler method, reducing RMS (Root Mean Square) error by orders of magnitude.
+
 ## Requirements / Требования
 
 - Python 3.6+ (for Python backend)

@@ -63,6 +63,11 @@ class PendulumSimulation {
         }
     }
     
+    // Helper method to calculate angular acceleration for given state
+    getAccelerationAt(angle, angularVelocity) {
+        return -(this.gravity / this.length) * Math.sin(angle) - this.damping * angularVelocity;
+    }
+    
     // Physics calculation (local simulation) using RK4 integration
     update(dt) {
         if (this.isPaused) return;
@@ -70,29 +75,25 @@ class PendulumSimulation {
         // RK4 (Runge-Kutta 4th order) integration for better accuracy
         // k1 - derivative at current state
         const k1_angle = this.angularVelocity;
-        const k1_velocity = -(this.gravity / this.length) * Math.sin(this.angle) 
-                           - this.damping * this.angularVelocity;
+        const k1_velocity = this.getAccelerationAt(this.angle, this.angularVelocity);
         
         // k2 - derivative at midpoint using k1
         const temp_angle2 = this.angle + 0.5 * dt * k1_angle;
         const temp_velocity2 = this.angularVelocity + 0.5 * dt * k1_velocity;
         const k2_angle = temp_velocity2;
-        const k2_velocity = -(this.gravity / this.length) * Math.sin(temp_angle2) 
-                           - this.damping * temp_velocity2;
+        const k2_velocity = this.getAccelerationAt(temp_angle2, temp_velocity2);
         
         // k3 - derivative at midpoint using k2
         const temp_angle3 = this.angle + 0.5 * dt * k2_angle;
         const temp_velocity3 = this.angularVelocity + 0.5 * dt * k2_velocity;
         const k3_angle = temp_velocity3;
-        const k3_velocity = -(this.gravity / this.length) * Math.sin(temp_angle3) 
-                           - this.damping * temp_velocity3;
+        const k3_velocity = this.getAccelerationAt(temp_angle3, temp_velocity3);
         
         // k4 - derivative at endpoint using k3
         const temp_angle4 = this.angle + dt * k3_angle;
         const temp_velocity4 = this.angularVelocity + dt * k3_velocity;
         const k4_angle = temp_velocity4;
-        const k4_velocity = -(this.gravity / this.length) * Math.sin(temp_angle4) 
-                           - this.damping * temp_velocity4;
+        const k4_velocity = this.getAccelerationAt(temp_angle4, temp_velocity4);
         
         // Weighted average of all derivatives
         this.angle += (dt / 6.0) * (k1_angle + 2*k2_angle + 2*k3_angle + k4_angle);
