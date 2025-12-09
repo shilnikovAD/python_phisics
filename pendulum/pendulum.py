@@ -34,14 +34,37 @@ class Pendulum:
     
     def update(self, dt=0.016):
         """
-        Update pendulum state using Euler method
+        Update pendulum state using RK4 (Runge-Kutta 4th order) method
         
         Args:
             dt: Time step in seconds
         """
-        angular_acceleration = self.get_angular_acceleration()
-        self.angular_velocity += angular_acceleration * dt
-        self.angle += self.angular_velocity * dt
+        # RK4 integration for better accuracy and energy conservation
+        # k1 - derivative at current state
+        k1_angle = self.angular_velocity
+        k1_velocity = self.get_angular_acceleration()
+        
+        # k2 - derivative at midpoint using k1
+        temp_angle = self.angle + 0.5 * dt * k1_angle
+        temp_velocity = self.angular_velocity + 0.5 * dt * k1_velocity
+        k2_angle = temp_velocity
+        k2_velocity = -(self.gravity / self.length) * math.sin(temp_angle) - self.damping * temp_velocity
+        
+        # k3 - derivative at midpoint using k2
+        temp_angle = self.angle + 0.5 * dt * k2_angle
+        temp_velocity = self.angular_velocity + 0.5 * dt * k2_velocity
+        k3_angle = temp_velocity
+        k3_velocity = -(self.gravity / self.length) * math.sin(temp_angle) - self.damping * temp_velocity
+        
+        # k4 - derivative at endpoint using k3
+        temp_angle = self.angle + dt * k3_angle
+        temp_velocity = self.angular_velocity + dt * k3_velocity
+        k4_angle = temp_velocity
+        k4_velocity = -(self.gravity / self.length) * math.sin(temp_angle) - self.damping * temp_velocity
+        
+        # Weighted average of all derivatives
+        self.angle += (dt / 6.0) * (k1_angle + 2*k2_angle + 2*k3_angle + k4_angle)
+        self.angular_velocity += (dt / 6.0) * (k1_velocity + 2*k2_velocity + 2*k3_velocity + k4_velocity)
         
     def get_position(self):
         """Get (x, y) position of pendulum bob"""
