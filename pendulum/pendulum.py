@@ -23,6 +23,12 @@ class Pendulum:
         self.initial_angle = angle
         self.I_cm = self._compute_I_cm()
         self.I_total = max(EPS, self.I_cm + self.mass * (self.length ** 2))
+        
+        # Energy conservation tracking
+        self.initial_energy = self.energy()
+        self.last_energy = self.initial_energy
+        self.energy_violation = 0.0
+        self.energy_tolerance = 0.02  # 2% tolerance
 
     def _compute_I_cm(self):
         if self.shape == 'point':
@@ -43,6 +49,32 @@ class Pendulum:
         self.I_cm = self._compute_I_cm()
         self.I_total = max(EPS, self.I_cm + self.mass * (self.length ** 2))
 
+    def energy(self):
+        """Calculate total mechanical energy of the pendulum"""
+        # Kinetic energy: (1/2) * I_total * omega^2
+        kinetic = 0.5 * self.I_total * self.angular_velocity * self.angular_velocity
+        
+        # Potential energy: m * g * h, where h = L * (1 - cos(theta))
+        # Taking the lowest point as zero potential energy
+        potential = self.mass * self.gravity * self.length * (1 - math.cos(self.angle))
+        
+        return kinetic + potential
+    
+    def check_energy_conservation(self):
+        """Check if energy is conserved within tolerance (for damping=0 case)"""
+        current_energy = self.energy()
+        
+        # Only check for undamped case
+        if self.damping == 0 and self.initial_energy > 0:
+            deviation = abs(current_energy - self.initial_energy) / self.initial_energy
+            self.energy_violation = deviation
+            
+            if deviation > self.energy_tolerance:
+                # Energy violation detected, but we don't stop - just log it
+                pass
+        
+        self.last_energy = current_energy
+    
     def get_angular_acceleration(self):
         # Используем sin(angle) для большей точности
         torque_gravity = -self.mass * self.gravity * self.length * math.sin(self.angle)
@@ -77,6 +109,9 @@ class Pendulum:
         self.angle += self.angular_velocity * dt
 
         self.t_elapsed += dt
+        
+        # Check energy conservation
+        self.check_energy_conservation()
 
     def analytic_solution(self, t=None):
         if t is None:
@@ -133,6 +168,11 @@ class Pendulum:
     def get_state(self):
         x, y = self.get_position()
         theta_analytic, omega_analytic, omega0 = self.analytic_solution()
+        current_energy = self.energy()
+        energy_deviation = 0.0
+        if self.initial_energy > 0:
+            energy_deviation = abs(current_energy - self.initial_energy) / self.initial_energy * 100
+        
         return {
             "angle": self.angle,
             "angularVelocity": self.angular_velocity,
@@ -150,7 +190,10 @@ class Pendulum:
             "analyticOmega0": omega0,
             "matchPercent": self.match_percent(),
             "time": self.t_elapsed,
-            "initialAngle": self.initial_angle
+            "initialAngle": self.initial_angle,
+            "energy": current_energy,
+            "energyDeviation": energy_deviation,
+            "energyTolerance": self.energy_tolerance * 100
         }
 
     def get_position(self):
