@@ -30,6 +30,13 @@ class PendulumSimulation {
         // Inertia
         this.I_cm = this.computeIcm();
         this.I_total = Math.max(1e-12, this.I_cm + this.mass * this.length * this.length);
+        
+        // Energy conservation tracking
+        this.initialEnergy = this.computeEnergy();
+        this.lastEnergy = this.initialEnergy;
+        this.energyViolation = 0;
+        this.energyTolerance = 0.02; // 2% tolerance
+        this.historyEnergy = [];
 
         // Visualization
         this.pivotX = this.canvas.width / 2;
@@ -53,9 +60,43 @@ class PendulumSimulation {
 
         // Подключение к API
         this.checkApiConnection();
+        
+        // Period analysis charts
+        this.periodAmplitudeChart = null;
+        this.periodDampingChart = null;
+        this.periodMeasurements = {
+            amplitudes: [],
+            periods: []
+        };
+        this.dampingMeasurements = {
+            dampings: [],
+            periods: []
+        };
 
         // Старт анимации
         this.animate();
+    }
+    
+    computeEnergy() {
+        // Kinetic energy: (1/2) * I_total * omega^2
+        const kinetic = 0.5 * this.I_total * this.angularVelocity * this.angularVelocity;
+        
+        // Potential energy: m * g * h, where h = L * (1 - cos(theta))
+        const potential = this.mass * this.gravity * this.length * (1 - Math.cos(this.angle));
+        
+        return kinetic + potential;
+    }
+    
+    checkEnergyConservation() {
+        const currentEnergy = this.computeEnergy();
+        
+        // Only check for undamped case
+        if (this.damping === 0 && this.initialEnergy > 0) {
+            const deviation = Math.abs(currentEnergy - this.initialEnergy) / this.initialEnergy;
+            this.energyViolation = deviation;
+        }
+        
+        this.lastEnergy = currentEnergy;
     }
 
     computeIcm() {
@@ -124,6 +165,9 @@ class PendulumSimulation {
         this.angle += this.angularVelocity * dt;
 
         this.t_elapsed += dt;
+        
+        // Check energy conservation
+        this.checkEnergyConservation();
     }
 
     // Аналитическое (малые колебания, с демпфированием и поправкой на амплитуду)
@@ -318,6 +362,23 @@ class PendulumSimulation {
             (analytic.theta_analytic * 180 / Math.PI).toFixed(1) + '°';
         document.getElementById('matchPercent').textContent =
             this.matchPercent().toFixed(1) + '%';
+        
+        // Update energy deviation display
+        const energyDeviationEl = document.getElementById('energyDeviation');
+        if (energyDeviationEl && this.initialEnergy > 0) {
+            const currentEnergy = this.computeEnergy();
+            const deviation = Math.abs(currentEnergy - this.initialEnergy) / this.initialEnergy * 100;
+            energyDeviationEl.textContent = deviation.toFixed(3) + '%';
+            
+            // Color code based on deviation
+            if (deviation < 1) {
+                energyDeviationEl.style.color = '#2E7D32'; // green
+            } else if (deviation < 5) {
+                energyDeviationEl.style.color = '#FF9800'; // orange
+            } else {
+                energyDeviationEl.style.color = '#D32F2F'; // red
+            }
+        }
 
         // Лог для отладки
         const { theta_analytic } = this.analyticSolution();
@@ -354,16 +415,24 @@ class PendulumSimulation {
         this.historyTime.push(this.t_elapsed);
         this.historyNum.push(this.angle);
         this.historyAnalytic.push(theta_analytic);
+        this.historyEnergy.push(this.lastEnergy || this.computeEnergy());
 
         // Ограничиваем историю
         if (this.historyTime.length > this.maxHistoryPoints) {
             this.historyTime.shift();
             this.historyNum.shift();
             this.historyAnalytic.shift();
+            this.historyEnergy.shift();
         }
 
         this.draw();
         this.drawGraphs();
+        
+        // Update period charts periodically
+        if (Math.random() < 0.01) { // Update ~1% of frames to reduce overhead
+            this.updatePeriodCharts();
+        }
+        
         requestAnimationFrame(() => this.animate());
     }
 
@@ -451,6 +520,180 @@ class PendulumSimulation {
             points: validPoints
         };
     }
+    
+    measurePeriod() {
+        // Measure period using zero-crossings of angle
+        if (this.historyTime.length < 100) return null;
+        
+        const crossings = [];
+        for (let i = 1; i < this.historyNum.length; i++) {
+            if (this.historyNum[i-1] < 0 && this.historyNum[i] >= 0) {
+                // Interpolate crossing time
+                const t1 = this.historyTime[i-1];
+                const t2 = this.historyTime[i];
+                const a1 = this.historyNum[i-1];
+                const a2 = this.historyNum[i];
+                const crossTime = t1 + (t2 - t1) * (-a1) / (a2 - a1);
+                crossings.push(crossTime);
+            }
+        }
+        
+        if (crossings.length < 2) return null;
+        
+        // Calculate average period
+        const periods = [];
+        for (let i = 1; i < crossings.length; i++) {
+            periods.push(crossings[i] - crossings[i-1]);
+        }
+        
+        const avgPeriod = periods.reduce((a, b) => a + b, 0) / periods.length;
+        return avgPeriod;
+    }
+    
+    updatePeriodCharts() {
+        // Only update if charts are initialized and we have enough data
+        if (!this.periodAmplitudeChart || !this.periodDampingChart) {
+            this.initPeriodCharts();
+        }
+        
+        if (this.t_elapsed < 5) return; // Need at least 5 seconds of data
+        
+        const period = this.measurePeriod();
+        if (period === null) return;
+        
+        // Update amplitude vs period data (for damping = 0)
+        if (this.damping === 0) {
+            const amplitude = Math.abs(this.initialAngle) * 180 / Math.PI;
+            this.periodMeasurements.amplitudes.push(amplitude);
+            this.periodMeasurements.periods.push(period);
+            
+            // Keep only last 50 measurements
+            if (this.periodMeasurements.amplitudes.length > 50) {
+                this.periodMeasurements.amplitudes.shift();
+                this.periodMeasurements.periods.shift();
+            }
+            
+            this.renderPeriodAmplitudeChart();
+        }
+        
+        // Update damping vs period data
+        this.dampingMeasurements.dampings.push(this.damping);
+        this.dampingMeasurements.periods.push(period);
+        
+        // Keep only last 50 measurements
+        if (this.dampingMeasurements.dampings.length > 50) {
+            this.dampingMeasurements.dampings.shift();
+            this.dampingMeasurements.periods.shift();
+        }
+        
+        this.renderPeriodDampingChart();
+    }
+    
+    initPeriodCharts() {
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js not loaded, period charts disabled');
+            return;
+        }
+        
+        const amplitudeCanvas = document.getElementById('periodAmplitudeChart');
+        const dampingCanvas = document.getElementById('periodDampingChart');
+        
+        if (!amplitudeCanvas || !dampingCanvas) {
+            console.warn('Period chart canvases not found');
+            return;
+        }
+        
+        // Initialize amplitude chart
+        this.periodAmplitudeChart = new Chart(amplitudeCanvas, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Период (с)',
+                    data: [],
+                    backgroundColor: 'rgba(76, 175, 80, 0.5)',
+                    borderColor: 'rgba(76, 175, 80, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Амплитуда (°)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Период (с)'
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // Initialize damping chart
+        this.periodDampingChart = new Chart(dampingCanvas, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Период (с)',
+                    data: [],
+                    backgroundColor: 'rgba(33, 150, 243, 0.5)',
+                    borderColor: 'rgba(33, 150, 243, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Коэффициент трения'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Период (с)'
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    renderPeriodAmplitudeChart() {
+        if (!this.periodAmplitudeChart) return;
+        
+        const data = this.periodMeasurements.amplitudes.map((amp, i) => ({
+            x: amp,
+            y: this.periodMeasurements.periods[i]
+        }));
+        
+        this.periodAmplitudeChart.data.datasets[0].data = data;
+        this.periodAmplitudeChart.update('none'); // 'none' mode for better performance
+    }
+    
+    renderPeriodDampingChart() {
+        if (!this.periodDampingChart) return;
+        
+        const data = this.dampingMeasurements.dampings.map((damp, i) => ({
+            x: damp,
+            y: this.dampingMeasurements.periods[i]
+        }));
+        
+        this.periodDampingChart.data.datasets[0].data = data;
+        this.periodDampingChart.update('none'); // 'none' mode for better performance
+    }
 
     reset(angle, length, damping, shape, bobSize, mass) {
         this.angle = angle;
@@ -472,6 +715,12 @@ class PendulumSimulation {
         this.historyTime = [];
         this.historyNum = [];
         this.historyAnalytic = [];
+        this.historyEnergy = [];
+        
+        // Reset energy tracking
+        this.initialEnergy = this.computeEnergy();
+        this.lastEnergy = this.initialEnergy;
+        this.energyViolation = 0;
 
         if (this.useApi) {
             fetch(`/api/reset?angle=${angle}&length=${length}&damping=${damping}` +
