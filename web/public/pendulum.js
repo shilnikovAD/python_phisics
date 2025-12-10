@@ -72,6 +72,9 @@ class PendulumSimulation {
             dampings: [],
             periods: []
         };
+        this.frameCount = 0;
+        this.CHART_UPDATE_INTERVAL = 100; // Update charts every 100 frames
+        this.MIN_DATA_TIME_SECONDS = 5; // Minimum time before measuring periods
 
         // Старт анимации
         this.animate();
@@ -428,8 +431,9 @@ class PendulumSimulation {
         this.draw();
         this.drawGraphs();
         
-        // Update period charts periodically
-        if (Math.random() < 0.01) { // Update ~1% of frames to reduce overhead
+        // Update period charts periodically using frame counter
+        this.frameCount++;
+        if (this.frameCount % this.CHART_UPDATE_INTERVAL === 0) {
             this.updatePeriodCharts();
         }
         
@@ -556,7 +560,7 @@ class PendulumSimulation {
             this.initPeriodCharts();
         }
         
-        if (this.t_elapsed < 5) return; // Need at least 5 seconds of data
+        if (this.t_elapsed < this.MIN_DATA_TIME_SECONDS) return; // Need enough data
         
         const period = this.measurePeriod();
         if (period === null) return;
@@ -680,7 +684,7 @@ class PendulumSimulation {
         }));
         
         this.periodAmplitudeChart.data.datasets[0].data = data;
-        this.periodAmplitudeChart.update('none'); // 'none' mode for better performance
+        this.periodAmplitudeChart.update('none'); // Disable animations for smoother updates
     }
     
     renderPeriodDampingChart() {
@@ -692,7 +696,7 @@ class PendulumSimulation {
         }));
         
         this.periodDampingChart.data.datasets[0].data = data;
-        this.periodDampingChart.update('none'); // 'none' mode for better performance
+        this.periodDampingChart.update('none'); // Disable animations for smoother updates
     }
 
     reset(angle, length, damping, shape, bobSize, mass) {
@@ -721,6 +725,7 @@ class PendulumSimulation {
         this.initialEnergy = this.computeEnergy();
         this.lastEnergy = this.initialEnergy;
         this.energyViolation = 0;
+        this.frameCount = 0; // Reset frame counter
 
         if (this.useApi) {
             fetch(`/api/reset?angle=${angle}&length=${length}&damping=${damping}` +
