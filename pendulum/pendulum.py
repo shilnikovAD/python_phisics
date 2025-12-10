@@ -18,6 +18,10 @@ class Pendulum:
         self.damping = damping
         self.shape = shape
         self.bob_size = bob_size
+        self.initial_energy = self.energy()
+        self.last_energy = self.initial_energy
+        self.energy_violation = 0.0
+        self.energy_tolerance = 0.02
 
         self.t_elapsed = 0.0
         self.initial_angle = angle
@@ -44,7 +48,6 @@ class Pendulum:
         self.I_total = max(EPS, self.I_cm + self.mass * (self.length ** 2))
 
     def get_angular_acceleration(self):
-        # Используем sin(angle) для большей точности
         torque_gravity = -self.mass * self.gravity * self.length * math.sin(self.angle)
         angular_acc = torque_gravity / self.I_total
         angular_acc -= self.damping * self.angular_velocity
@@ -53,48 +56,79 @@ class Pendulum:
     def update(self, dt=0.005):
         if dt <= 0:
             return
+        torque_gravity = -self.mass * self.gravity * self.length * math.sin(self.angle)
+        angular_acc_gravity = torque_gravity / self.I_total
 
-        # Метод Хойна (Heun) - более точный, чем Эйлер
-        a1 = self.get_angular_acceleration()
-        w1 = self.angular_velocity
-        th1 = self.angle
+        if self.damping > 0:
+            self.angular_velocity += angular_acc_gravity * dt
+            self.angular_velocity *= math.exp(-self.damping * dt)
+        else:
+            self.angular_velocity += angular_acc_gravity * dt
 
-        # Пробный шаг Эйлера
-        w_star = w1 + a1 * dt
-        th_star = th1 + w1 * dt
-
-        # Сохраняем текущее состояние
-        saved_angle = self.angle
-        saved_w = self.angular_velocity
-
-        # Вычисляем ускорение в пробной точке
-        self.angle = th_star
-        self.angular_velocity = w_star
-        a2 = self.get_angular_acceleration()
-
-        # Восстанавливаем состояние
-        self.angle = saved_angle
-        self.angular_velocity = saved_w
-
-        # Окончательное обновление (Heun)
-        self.angular_velocity = w1 + 0.5 * (a1 + a2) * dt
-        self.angle = th1 + 0.5 * (w1 + w_star) * dt
+        self.angle += self.angular_velocity * dt
 
         self.t_elapsed += dt
+        self.check_energy_conservation()
+
+    def check_energy_conservation(self):
+        E = self.energy()
+        if not math.isfinite(self.initial_energy) or self.initial_energy <= EPS:
+            self.initial_energy = E
+        deviation = abs(E - self.initial_energy) / max(EPS, self.initial_energy)
+        self.energy_violation = deviation
+        self.last_energy = E
+        return E, deviation
+
+    def energy(self):
+        self.recompute_inertia()
+        Ek = 0.5 * self.I_total * (self.angular_velocity ** 2)
+        Ep = self.mass * self.gravity * self.length * (1.0 - math.cos(self.angle))
+        return Ek + Ep
+
+    def get_state(self):
+        x, y = self.get_position()
+        theta_analytic, omega_analytic, omega0 = self.analytic_solution()
+        E = self.energy()
+        return {
+            "angle": self.angle,
+            "angularVelocity": self.angular_velocity,
+            "x": x,
+            "y": y,
+            "length": self.length,
+            "mass": self.mass,
+            "damping": self.damping,
+            "shape": self.shape,
+            "bobSize": self.bob_size,
+            "I_cm": self.I_cm,
+            "I_total": self.I_total,
+            "analyticAngle": theta_analytic,
+            "analyticAngularVelocity": omega_analytic,
+            "analyticOmega0": omega0,
+            "matchPercent": self.match_percent(),
+            "time": self.t_elapsed,
+            "initialAngle": self.initial_angle,
+            "energy": E      # ← НОВОЕ ПОЛЕ
+        }
 
     def analytic_solution(self, t=None):
         if t is None:
             t = self.t_elapsed
 
         # Для аналитического решения используем линеаризацию (sinθ ≈ θ)
-        omega0 = math.sqrt(max(EPS, (self.mass * self.gravity * self.length) / self.I_total))
+        omega0_linear = math.sqrt(max(EPS, (self.mass * self.gravity * self.length) / self.I_total))
+
+        amplitude = abs(self.initial_angle)
+        if amplitude > 1e-6:
+            freq_correction = 1.0 + (1.0 / 16.0) * amplitude ** 2 + (11.0 / 3072.0) * amplitude ** 4
+            omega0 = omega0_linear / freq_correction
+        else:
+            omega0 = omega0_linear
+
         beta = 0.5 * self.damping
 
-        # Проверка режима
         discriminant = omega0 * omega0 - beta * beta
 
         if discriminant <= 0:
-            # Апериодический режим
             gamma1 = -beta + math.sqrt(beta * beta - omega0 * omega0)
             gamma2 = -beta - math.sqrt(beta * beta - omega0 * omega0)
             A = self.initial_angle * gamma2 / (gamma2 - gamma1)
@@ -103,7 +137,6 @@ class Pendulum:
             omega_analytic = A * gamma1 * math.exp(gamma1 * t) + B * gamma2 * math.exp(gamma2 * t)
             return theta_analytic, omega_analytic, omega0
 
-        # Колебательный режим
         omega = math.sqrt(max(EPS, discriminant))
         decay = math.exp(-beta * t)
 
@@ -167,7 +200,6 @@ class PendulumAPIHandler(BaseHTTPRequestHandler):
         parsed_path = urlparse(self.path)
 
         if parsed_path.path == '/api/state':
-            # Обновляем состояние с малым шагом для точности
             self.pendulum.update(dt=0.002)
             self._set_headers()
             self.wfile.write(json.dumps(self.pendulum.get_state()).encode())
@@ -182,7 +214,6 @@ class PendulumAPIHandler(BaseHTTPRequestHandler):
                 shape = query.get('shape', ['point'])[0]
                 bob_size = float(query.get('bobSize', [0.05])[0])
 
-                # Валидация параметров
                 angle = max(-math.pi, min(math.pi, angle))
                 length = max(0.01, min(10.0, length))
                 mass = max(0.001, min(100.0, mass))
@@ -191,7 +222,6 @@ class PendulumAPIHandler(BaseHTTPRequestHandler):
                     shape = 'point'
                 bob_size = max(1e-4, min(10.0, bob_size))
             except (ValueError, TypeError):
-                # Значения по умолчанию
                 angle = 0.8
                 length = 1.0
                 mass = 1.0
@@ -199,7 +229,6 @@ class PendulumAPIHandler(BaseHTTPRequestHandler):
                 shape = 'point'
                 bob_size = 0.05
 
-            # Создаем новый маятник
             self.pendulum = Pendulum(
                 length=length, mass=mass, angle=angle,
                 angular_velocity=0.0, damping=damping,
