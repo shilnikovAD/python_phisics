@@ -92,5 +92,3 @@ async def search_repositories(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-

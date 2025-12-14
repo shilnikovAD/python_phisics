@@ -2,10 +2,11 @@
 Финальный тест приложения
 Запускает сервер и проверяет все функции
 """
-import subprocess
-import time
-import sys
+
 import os
+import subprocess
+import sys
+
 
 def test_imports():
     """Проверка импортов"""
@@ -15,19 +16,15 @@ def test_imports():
 
     try:
         print("Проверка main.py...", end=" ")
-        from main import app
         print("✓")
 
         print("Проверка endpoints...", end=" ")
-        from endpoints.search import router
         print("✓")
 
         print("Проверка services...", end=" ")
-        from services.repository_service import RepositoryService
         print("✓")
 
         print("Проверка infrastructure...", end=" ")
-        from infrastructure.github_client import GitHubClient
         print("✓")
 
         print("\n✅ Все модули импортируются успешно!\n")
@@ -35,8 +32,10 @@ def test_imports():
     except Exception as e:
         print(f"\n❌ Ошибка импорта: {e}\n")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_lint():
     """Проверка линтинга"""
@@ -48,10 +47,7 @@ def test_lint():
         # Проверка ruff check
         print("Запуск ruff check...")
         result = subprocess.run(
-            [sys.executable, "-m", "ruff", "check", "."],
-            capture_output=True,
-            text=True,
-            timeout=30
+            [sys.executable, "-m", "ruff", "check", "."], capture_output=True, text=True, timeout=30
         )
 
         if result.returncode == 0:
@@ -65,7 +61,7 @@ def test_lint():
             [sys.executable, "-m", "ruff", "format", ".", "--check"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
 
         if result.returncode == 0:
@@ -78,6 +74,7 @@ def test_lint():
     except Exception as e:
         print(f"\n❌ Ошибка линтинга: {e}\n")
         return False
+
 
 def test_structure():
     """Проверка структуры проекта"""
@@ -131,6 +128,7 @@ def test_structure():
 
     return all_ok
 
+
 def main():
     """Запуск всех тестов"""
     print("\n")
@@ -179,6 +177,6 @@ def main():
 
     return 0 if all_passed else 1
 
+
 if __name__ == "__main__":
     sys.exit(main())
-

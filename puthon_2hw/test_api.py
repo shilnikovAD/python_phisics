@@ -37,7 +37,7 @@ async def test_api():
         csv_file = "static/repositories_Python_10_0.csv"
         if os.path.exists(csv_file):
             print(f"CSV file created successfully: {csv_file}")
-            with open(csv_file, "r", encoding="utf-8") as f:
+            with open(csv_file, encoding="utf-8") as f:
                 lines = f.readlines()
                 print(f"File contains {len(lines)} lines (including header)")
                 if len(lines) > 0:
@@ -48,4 +48,3 @@ async def test_api():
 
 if __name__ == "__main__":
     asyncio.run(test_api())
-

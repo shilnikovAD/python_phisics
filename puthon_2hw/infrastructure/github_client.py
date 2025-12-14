@@ -56,4 +56,3 @@ class GitHubClient:
             response = await client.get(url, headers=self.headers, params=params)
             response.raise_for_status()
             return response.json()
-

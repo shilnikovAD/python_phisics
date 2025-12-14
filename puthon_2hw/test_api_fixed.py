@@ -1,9 +1,11 @@
 """
 Простой тест API для проверки работы после исправления
 """
-import httpx
+
 import asyncio
 import os
+
+import httpx
 
 
 async def test_api_fixed():
@@ -23,11 +25,7 @@ async def test_api_fixed():
 
             # Тест 2: Поиск Python репозиториев
             print("\n2. Поиск 5 Python репозиториев...")
-            params = {
-                "limit": 5,
-                "lang": "Python",
-                "stars_min": 1000
-            }
+            params = {"limit": 5, "lang": "Python", "stars_min": 1000}
             response = await client.get(f"{base_url}/api/search", params=params)
             result = response.json()
             print(f"   ✓ Статус: {response.status_code}")
@@ -35,8 +33,8 @@ async def test_api_fixed():
             print(f"   ✓ Найдено: {result['count']} репозиториев")
 
             # Проверка файла
-            if os.path.exists(result['file']):
-                with open(result['file'], 'r', encoding='utf-8') as f:
+            if os.path.exists(result["file"]):
+                with open(result["file"], encoding="utf-8") as f:
                     lines = f.readlines()
                     print(f"   ✓ CSV файл содержит {len(lines)} строк")
                     if len(lines) > 1:
@@ -44,11 +42,7 @@ async def test_api_fixed():
 
             # Тест 3: Поиск Go репозиториев
             print("\n3. Поиск 3 Go репозиториев...")
-            params = {
-                "limit": 3,
-                "lang": "Go",
-                "stars_min": 5000
-            }
+            params = {"limit": 3, "lang": "Go", "stars_min": 5000}
             response = await client.get(f"{base_url}/api/search", params=params)
             result = response.json()
             print(f"   ✓ Статус: {response.status_code}")
@@ -57,12 +51,7 @@ async def test_api_fixed():
 
             # Тест 4: Поиск с фильтром по форкам
             print("\n4. Поиск 2 JavaScript репозиториев с фильтром...")
-            params = {
-                "limit": 2,
-                "lang": "JavaScript",
-                "stars_min": 1000,
-                "forks_min": 500
-            }
+            params = {"limit": 2, "lang": "JavaScript", "stars_min": 1000, "forks_min": 500}
             response = await client.get(f"{base_url}/api/search", params=params)
             result = response.json()
             print(f"   ✓ Статус: {response.status_code}")
@@ -78,9 +67,9 @@ async def test_api_fixed():
         except Exception as e:
             print(f"\n❌ Ошибка: {e}")
             import traceback
+
             traceback.print_exc()
 
 
 if __name__ == "__main__":
     asyncio.run(test_api_fixed())
-
