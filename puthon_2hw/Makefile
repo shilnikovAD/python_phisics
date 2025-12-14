@@ -5,11 +5,11 @@ install:
 	pip install ruff
 
 lint-check:
-	ruff check . --fix
-	ruff format . --check
+	python -m ruff check . --fix
+	python -m ruff format . --check
 
 format:
-	ruff format .
+	python -m ruff format .
 
 run:
 	python run_server.py

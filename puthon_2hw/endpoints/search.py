@@ -1,5 +1,3 @@
-"""Search endpoint for GitHub repositories"""
-
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
@@ -20,39 +18,16 @@ async def search_repositories(
     forks_min: Annotated[int, Query(description="Minimum forks", ge=0)] = 0,
     forks_max: Annotated[int | None, Query(description="Maximum forks", ge=0)] = None,
 ):
-    """
-    Search GitHub repositories and save results to CSV
-
-    Args:
-        limit: Number of repositories to return (1-1000)
-        offset: Number of repositories to skip (default: 0)
-        lang: Programming language filter (optional)
-        stars_min: Minimum number of stars (default: 0)
-        stars_max: Maximum number of stars (optional)
-        forks_min: Minimum number of forks (default: 0)
-        forks_max: Maximum number of forks (optional)
-
-    Returns:
-        JSON response with file path and repository count
-    """
     try:
-        # Validate parameters
         if stars_max is not None and stars_max < stars_min:
             raise HTTPException(
-                status_code=400,
-                detail="stars_max must be greater than or equal to stars_min",
+                status_code=400, detail="stars_max must be greater than or equal to stars_min"
             )
-
         if forks_max is not None and forks_max < forks_min:
             raise HTTPException(
-                status_code=400,
-                detail="forks_max must be greater than or equal to forks_min",
+                status_code=400, detail="forks_max must be greater than or equal to forks_min"
             )
-
-        # Initialize service
         service = RepositoryService()
-
-        # Search repositories
         repositories = await service.search_repositories(
             limit=limit,
             offset=offset,
@@ -62,14 +37,9 @@ async def search_repositories(
             forks_min=forks_min,
             forks_max=forks_max,
         )
-
-        # Generate filename
         lang_str = lang if lang else "all"
         filename = f"repositories_{lang_str}_{limit}_{offset}.csv"
-
-        # Save to CSV
         filepath = await service.save_to_csv(repositories, filename)
-
         return JSONResponse(
             content={
                 "status": "success",
@@ -87,7 +57,6 @@ async def search_repositories(
                 },
             }
         )
-
     except HTTPException:
         raise
     except Exception as e:

@@ -1,11 +1,10 @@
-
 import matplotlib.pyplot as plt
 from pendulum import Pendulum
 
 
-def measure_period(pend: Pendulum, dt: float, n_periods: int = 5,
-                   max_time: float = 50.0) -> float:
-
+def measure_period(
+    pend: Pendulum, dt: float, n_periods: int = 5, max_time: float = 50.0
+) -> float:
     t_first = None
     t_last = None
     prev_angle = pend.angle
@@ -38,9 +37,16 @@ def simulate_period_vs_amplitude():
     energy_drifts = []
 
     for theta0 in amplitudes:
-        pend = Pendulum(length=L, mass=1.0, angle=theta0,
-                        angular_velocity=0.0, gravity=g,
-                        damping=damping, shape='point', bob_size=0.05)
+        pend = Pendulum(
+            length=L,
+            mass=1.0,
+            angle=theta0,
+            angular_velocity=0.0,
+            gravity=g,
+            damping=damping,
+            shape="point",
+            bob_size=0.05,
+        )
 
         T = measure_period(pend, dt, n_periods=n_periods, max_time=40.0)
         periods.append(T)
@@ -78,9 +84,16 @@ def simulate_period_vs_damping():
     periods = []
 
     for damping in dampings:
-        pend = Pendulum(length=L, mass=1.0, angle=theta0,
-                        angular_velocity=0.0, gravity=g,
-                        damping=damping, shape='point', bob_size=0.05)
+        pend = Pendulum(
+            length=L,
+            mass=1.0,
+            angle=theta0,
+            angular_velocity=0.0,
+            gravity=g,
+            damping=damping,
+            shape="point",
+            bob_size=0.05,
+        )
 
         T = measure_period(pend, dt, n_periods=n_periods, max_time=60.0)
         periods.append(T)

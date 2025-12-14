@@ -6,19 +6,15 @@ FastAPI приложение для поиска репозиториев на G
 
 1. Установите зависимости:
 ```bash
-make install
-```
-
-или
-
-```bash
 pip install -r requirements.txt
 pip install ruff
 ```
 
-2. (Опционально) Создайте `.env` файл и добавьте GitHub токен для увеличения лимита запросов:
-```
-GITHUB_TOKEN=your_token_here
+**Для Windows:** используйте make-скрипты:
+```powershell
+.\make.ps1 install
+# или
+.\make.bat install
 ```
 
 ## Тестирование
@@ -28,34 +24,26 @@ GITHUB_TOKEN=your_token_here
 ```bash
 python test_project.py
 ```
-
-или
-
-```bash
-make test
-```
-
 ## Запуск
 
+### PowerShell (Windows)
+```powershell
+# Из директории puthon_2hw
+python run_server.py
+```
+
+### Bash/Linux/Mac
 ```bash
 python run_server.py
 ```
 
-или
-
-```bash
-make run
-```
-
-Приложение будет доступно по адресу: http://127.0.0.1:8001
+Приложение будет доступно по адресу: **http://127.0.0.1:9000**
 
 ## API Документация
 
 После запуска приложения документация API доступна по адресу:
-- Swagger UI: http://127.0.0.1:8001/docs
-- ReDoc: http://127.0.0.1:8001/redoc
-
-Больше примеров использования в файле [EXAMPLES.md](EXAMPLES.md)
+- Swagger UI: http://127.0.0.1:9000/docs
+- ReDoc: http://127.0.0.1:9000/redoc
 
 ## Использование
 
@@ -73,16 +61,21 @@ make run
 - `forks_min` (опциональный): Минимальное количество форков (по умолчанию: 0)
 - `forks_max` (опциональный): Максимальное количество форков
 
-#### Пример запроса:
+#### Примеры запросов:
 
-```bash
-curl "http://127.0.0.1:8001/api/search?limit=50&offset=0&lang=Python&stars_min=1000"
+**PowerShell:**
+```powershell
+Invoke-WebRequest -Uri "http://127.0.0.1:9000/api/search?limit=50&offset=0&lang=Python&stars_min=1000" -UseBasicParsing
 ```
 
-Или через PowerShell:
+**Curl (если установлен):**
+```bash
+curl "http://127.0.0.1:9000/api/search?limit=50&offset=0&lang=Python&stars_min=1000"
+```
 
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:8001/api/search?limit=50&lang=Python&stars_min=1000"
+**Или просто откройте в браузере:**
+```
+http://127.0.0.1:9000/api/search?limit=50&lang=Python&stars_min=1000
 ```
 
 #### Ответ:
@@ -120,6 +113,20 @@ CSV файл содержит следующие поля:
 
 ## Проверка кода
 
+**Вариант 1: Через make-скрипты (Windows):**
+```powershell
+.\make.ps1 lint-check
+# или
+.\make.bat lint-check
+```
+
+**Вариант 2: Напрямую (все платформы):**
+```bash
+python -m ruff check . --fix
+python -m ruff format . --check
+```
+
+**Вариант 3: Linux/Mac с установленным make:**
 ```bash
 make lint-check
 ```
@@ -143,12 +150,4 @@ puthon_2hw/
 │   └── github_client.py        # HTTP клиент для GitHub API
 └── static/                      # Статические файлы (CSV)
 ```
-
-## Технологии
-
-- **FastAPI**: Веб-фреймворк
-- **httpx**: Асинхронный HTTP-клиент
-- **aiofile**: Асинхронная работа с файлами
-- **uvicorn**: ASGI сервер
-- **ruff**: Линтер и форматтер
 

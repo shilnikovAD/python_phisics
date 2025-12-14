@@ -13,11 +13,11 @@ try:
 
     print("✓ Uvicorn imported successfully")
 
-    print("\nStarting server on http://127.0.0.1:8001")
+    print("\nStarting server on http://127.0.0.1:9000")
     print("Press Ctrl+C to stop the server")
     print("-" * 50)
 
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=9000)
 
 except Exception as e:
     print(f"\n Error: {e}")

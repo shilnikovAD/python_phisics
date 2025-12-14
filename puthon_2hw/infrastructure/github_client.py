@@ -8,8 +8,6 @@ load_dotenv()
 
 
 class GitHubClient:
-    """HTTP client for GitHub API"""
-
     BASE_URL = "https://api.github.com"
     SEARCH_REPOS_ENDPOINT = "/search/repositories"
 
@@ -30,19 +28,6 @@ class GitHubClient:
         per_page: int = 30,
         page: int = 1,
     ) -> dict[str, Any]:
-        """
-        Search repositories on GitHub
-
-        Args:
-            query: Search query string
-            sort: Sort field (stars, forks, updated)
-            order: Sort order (asc, desc)
-            per_page: Results per page (max 100)
-            page: Page number
-
-        Returns:
-            Dictionary with search results
-        """
         url = f"{self.BASE_URL}{self.SEARCH_REPOS_ENDPOINT}"
         params = {
             "q": query,
@@ -51,7 +36,6 @@ class GitHubClient:
             "per_page": min(per_page, 100),
             "page": page,
         }
-
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=self.headers, params=params)
             response.raise_for_status()

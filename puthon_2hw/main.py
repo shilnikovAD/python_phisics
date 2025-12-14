@@ -1,7 +1,3 @@
-"""
-FastAPI Application for GitHub Repository Search
-"""
-
 import os
 from contextlib import asynccontextmanager
 
@@ -13,8 +9,6 @@ from endpoints.search import router as search_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan context manager"""
-    # Create static directory if it doesn't exist
     os.makedirs("static", exist_ok=True)
     yield
 
@@ -32,7 +26,6 @@ app.include_router(search_router, prefix="/api", tags=["search"])
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
     return JSONResponse(
         content={
             "message": "GitHub Repository Search API",
