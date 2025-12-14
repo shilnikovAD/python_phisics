@@ -18,15 +18,16 @@ class Pendulum:
         self.damping = damping
         self.shape = shape
         self.bob_size = bob_size
-        self.initial_energy = self.energy()
-        self.last_energy = self.initial_energy
-        self.energy_violation = 0.0
-        self.energy_tolerance = 0.02
 
         self.t_elapsed = 0.0
         self.initial_angle = angle
         self.I_cm = self._compute_I_cm()
         self.I_total = max(EPS, self.I_cm + self.mass * (self.length ** 2))
+
+        self.initial_energy = self.energy()
+        self.last_energy = self.initial_energy
+        self.energy_violation = 0.0
+        self.energy_tolerance = 0.02
 
     def _compute_I_cm(self):
         if self.shape == 'point':
@@ -47,6 +48,25 @@ class Pendulum:
         self.I_cm = self._compute_I_cm()
         self.I_total = max(EPS, self.I_cm + self.mass * (self.length ** 2))
 
+    def energy(self):
+        kinetic = 0.5 * self.I_total * self.angular_velocity * self.angular_velocity
+
+        potential = self.mass * self.gravity * self.length * (1 - math.cos(self.angle))
+
+        return kinetic + potential
+
+    def check_energy_conservation(self):
+        current_energy = self.energy()
+
+        if self.damping == 0 and self.initial_energy > 0:
+            deviation = abs(current_energy - self.initial_energy) / self.initial_energy
+            self.energy_violation = deviation
+
+            if deviation > self.energy_tolerance:
+                pass
+
+        self.last_energy = current_energy
+
     def get_angular_acceleration(self):
         torque_gravity = -self.mass * self.gravity * self.length * math.sin(self.angle)
         angular_acc = torque_gravity / self.I_total
@@ -56,6 +76,7 @@ class Pendulum:
     def update(self, dt=0.005):
         if dt <= 0:
             return
+
         torque_gravity = -self.mass * self.gravity * self.length * math.sin(self.angle)
         angular_acc_gravity = torque_gravity / self.I_total
 
@@ -68,53 +89,13 @@ class Pendulum:
         self.angle += self.angular_velocity * dt
 
         self.t_elapsed += dt
+
         self.check_energy_conservation()
-
-    def check_energy_conservation(self):
-        E = self.energy()
-        if not math.isfinite(self.initial_energy) or self.initial_energy <= EPS:
-            self.initial_energy = E
-        deviation = abs(E - self.initial_energy) / max(EPS, self.initial_energy)
-        self.energy_violation = deviation
-        self.last_energy = E
-        return E, deviation
-
-    def energy(self):
-        self.recompute_inertia()
-        Ek = 0.5 * self.I_total * (self.angular_velocity ** 2)
-        Ep = self.mass * self.gravity * self.length * (1.0 - math.cos(self.angle))
-        return Ek + Ep
-
-    def get_state(self):
-        x, y = self.get_position()
-        theta_analytic, omega_analytic, omega0 = self.analytic_solution()
-        E = self.energy()
-        return {
-            "angle": self.angle,
-            "angularVelocity": self.angular_velocity,
-            "x": x,
-            "y": y,
-            "length": self.length,
-            "mass": self.mass,
-            "damping": self.damping,
-            "shape": self.shape,
-            "bobSize": self.bob_size,
-            "I_cm": self.I_cm,
-            "I_total": self.I_total,
-            "analyticAngle": theta_analytic,
-            "analyticAngularVelocity": omega_analytic,
-            "analyticOmega0": omega0,
-            "matchPercent": self.match_percent(),
-            "time": self.t_elapsed,
-            "initialAngle": self.initial_angle,
-            "energy": E      # ← НОВОЕ ПОЛЕ
-        }
 
     def analytic_solution(self, t=None):
         if t is None:
             t = self.t_elapsed
 
-        # Для аналитического решения используем линеаризацию (sinθ ≈ θ)
         omega0_linear = math.sqrt(max(EPS, (self.mass * self.gravity * self.length) / self.I_total))
 
         amplitude = abs(self.initial_angle)
@@ -156,6 +137,11 @@ class Pendulum:
     def get_state(self):
         x, y = self.get_position()
         theta_analytic, omega_analytic, omega0 = self.analytic_solution()
+        current_energy = self.energy()
+        energy_deviation = 0.0
+        if self.initial_energy > 0:
+            energy_deviation = abs(current_energy - self.initial_energy) / self.initial_energy * 100
+
         return {
             "angle": self.angle,
             "angularVelocity": self.angular_velocity,
@@ -173,7 +159,10 @@ class Pendulum:
             "analyticOmega0": omega0,
             "matchPercent": self.match_percent(),
             "time": self.t_elapsed,
-            "initialAngle": self.initial_angle
+            "initialAngle": self.initial_angle,
+            "energy": current_energy,
+            "energyDeviation": energy_deviation,
+            "energyTolerance": self.energy_tolerance * 100
         }
 
     def get_position(self):
@@ -217,7 +206,7 @@ class PendulumAPIHandler(BaseHTTPRequestHandler):
                 angle = max(-math.pi, min(math.pi, angle))
                 length = max(0.01, min(10.0, length))
                 mass = max(0.001, min(100.0, mass))
-                damping = max(0.0, min(1.0, damping))
+                damping = max(0.0, damping)
                 if shape not in ('point', 'disk', 'rod', 'sphere'):
                     shape = 'point'
                 bob_size = max(1e-4, min(10.0, bob_size))
@@ -225,7 +214,7 @@ class PendulumAPIHandler(BaseHTTPRequestHandler):
                 angle = 0.8
                 length = 1.0
                 mass = 1.0
-                damping = 0.01
+                damping = 0.1
                 shape = 'point'
                 bob_size = 0.05
 

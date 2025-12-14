@@ -109,6 +109,39 @@
             font-size: 14px;
             white-space: nowrap;
         }
+        .chart-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .chart-section h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .chart-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+        .chart-item h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+        .chart-item canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
     </style>
 </head>
 <body>
@@ -210,25 +243,26 @@
                 <div>
                     <strong>Отклонение энергии:</strong><br>
                     <span id="energyDeviation">0.000%</span>
+                </div>
             </div>
-            </div>
-        </div>
-    </div>
-    <section class="chart-row">
-    <h3>Период колебаний</h3>
-    <div class="chart-grid">
-        <div>
-            <strong>Период vs амплитуда</strong>
-            <canvas id="periodAmplitudeChart"></canvas>
-        </div>
-        <div>
-            <strong>Период vs коэффициент трения</strong>
-            <canvas id="periodDampingChart"></canvas>
-        </div>
-    </div>
-</section>
 
-    <script src="pendulum.js"></script>
+            <section class="chart-section">
+                <h3>Период колебаний</h3>
+                <div class="chart-grid">
+                    <div class="chart-item">
+                        <h4>Период vs Амплитуда</h4>
+                        <canvas id="periodAmplitudeChart" width="400" height="250"></canvas>
+                    </div>
+                    <div class="chart-item">
+                        <h4>Период vs Коэффициент трения</h4>
+                        <canvas id="periodDampingChart" width="400" height="250"></canvas>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="pendulum.js"></script>
 </body>
 </html>

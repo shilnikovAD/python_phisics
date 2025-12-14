@@ -1,0 +1,44 @@
+# Python
+*.log
+# Logs
+
+static/*.csv
+# Static files
+
+.env.local
+.env
+# Environment variables
+
+*~
+*.swo
+*.swp
+.vscode/
+.idea/
+# IDE
+
+ENV/
+env/
+venv/
+# Virtual Environment
+
+*.egg
+.installed.cfg
+*.egg-info/
+wheels/
+var/
+sdist/
+parts/
+lib64/
+lib/
+.eggs/
+eggs/
+downloads/
+dist/
+develop-eggs/
+build/
+.Python
+*.so
+*$py.class
+*.py[cod]
+__pycache__/
+
