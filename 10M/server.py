@@ -59,15 +59,11 @@ class UpdateParamsRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Интерактивная 2D симуляция модели Изинга"""
     return FileResponse(os.path.join(STATIC_DIR, "ising2d.html"))
 
 
 @app.post("/api/init")
 async def init_model(req: InitRequest):
-    """
-    Инициализировать новую модель или обновить существующую
-    """
     try:
         session_id = str(uuid.uuid4())
         model = IsingModel2D(size=req.size, T=req.T, J=req.J, B=req.B)
@@ -75,7 +71,6 @@ async def init_model(req: InitRequest):
         if req.spins:
             model.set_spins(req.spins)
 
-        # Сохраняем в глобальное хранилище
         from ising_model import _models
 
         _models[session_id] = model
@@ -93,9 +88,6 @@ async def init_model(req: InitRequest):
 
 @app.post("/api/step")
 async def run_steps(req: StepRequest):
-    """
-    Выполнить n шагов Монте-Карло
-    """
     try:
         model = get_model(req.session_id)
         accepted, spins = model.run_steps(req.n_steps)
@@ -115,9 +107,6 @@ async def run_steps(req: StepRequest):
 
 @app.post("/api/flip")
 async def flip_spin(req: FlipRequest):
-    """
-    Перевернуть спин в позиции (i, j)
-    """
     try:
         model = get_model(req.session_id)
         model.flip_spin(req.i, req.j)
@@ -131,9 +120,6 @@ async def flip_spin(req: FlipRequest):
 
 @app.post("/api/update_params")
 async def update_params(req: UpdateParamsRequest):
-    """
-    Обновить параметры модели (T, J, B)
-    """
     try:
         model = get_model(req.session_id)
 
@@ -149,13 +135,6 @@ async def update_params(req: UpdateParamsRequest):
         raise HTTPException(status_code=404, detail="Session not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# ============================================================================
-# М10Б: Ферромагнетизм - API endpoints
-# ============================================================================
-
-
 class FerromagneticScanRequest(BaseModel):
     size: int = Field(20, ge=10, le=50, description="Размер решетки")
     J: float = Field(1.0, ge=0.1, le=2.0, description="Обменное взаимодействие")
@@ -177,14 +156,6 @@ class CriticalTemperatureRequest(BaseModel):
 
 @app.post("/api/ferromagnetic_scan")
 async def ferromagnetic_scan(req: FerromagneticScanRequest):
-    """
-    М10Б: Сканирование ферромагнетика по температурам
-
-    Возвращает:
-    - ⟨M⟩(T) - функция намагниченности
-    - χ(T) - восприимчивость
-    - ⟨E⟩(T) - энергия
-    """
     try:
         result = scan_temperature_ferromagnetic(
             size=req.size,
@@ -203,15 +174,6 @@ async def ferromagnetic_scan(req: FerromagneticScanRequest):
 
 @app.post("/api/find_critical_temperature")
 async def find_tc(req: CriticalTemperatureRequest):
-    """
-    М10Б: Определение температуры фазового перехода T₀ (T_c)
-
-    Методы:
-    1. Максимум восприимчивости χ
-    2. Пересечение ⟨|M|⟩ с порогом
-
-    Теория для 2D: T_c ≈ 2.269 * J
-    """
     try:
         result = find_critical_temperature(
             size=req.size,
@@ -224,8 +186,6 @@ async def find_tc(req: CriticalTemperatureRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# Монтируем статические файлы
 try:
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 except Exception:
