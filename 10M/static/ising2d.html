@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивная модель Изинга 2D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #1e3c72;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .canvas-container {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #latticeCanvas {
+            border: 2px solid #1e3c72;
+            border-radius: 5px;
+            cursor: pointer;
+            background: white;
+        }
+
+        .controls-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 0.95em;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #1e3c72;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #1e3c72;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #1e3c72;
+            box-shadow: 0 0 5px rgba(30, 60, 114, 0.3);
+        }
+
+        .value-display {
+            display: inline-block;
+            background: #1e3c72;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(56, 239, 125, 0.4);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info-box h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .preset-btn {
+            padding: 10px;
+            background: white;
+            border: 2px solid #1e3c72;
+            color: #1e3c72;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .preset-btn:hover {
+            background: #1e3c72;
+            color: white;
+        }
+
+        .animation-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Интерактивная модель Изинга 2D</h1>
+        <div class="info-box">
+            <p>
+                <strong>Температура:</strong> высокая T → хаос, низкая T → порядок<br>
+                <strong>J > 0:</strong> ферромагнетик (спины выстраиваются)<br>
+                <strong>J < 0:</strong> антиферромагнетик (шахматный порядок)
+            </p>
+        </div>
+
+        <div class="main-grid">
+            <div class="canvas-container">
+                <canvas id="latticeCanvas" width="600" height="600"></canvas>
+                <div class="animation-controls">
+                    <button class="btn-success" onclick="startAnimation()">Старт</button>
+                    <button class="btn-danger" onclick="stopAnimation()">Пауза</button>
+                    <button class="btn-secondary" onclick="stepAnimation()">Шаг</button>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <div class="preset-buttons">
+                    <button class="preset-btn" onclick="loadPreset('ferro_low')">Ферромагнетик</button>
+                    <button class="preset-btn" onclick="loadPreset('ferro_high')">Парамагнетик</button>
+                    <button class="preset-btn" onclick="loadPreset('antiferro')">Антиферромагнетик</button>
+                    <button class="preset-btn" onclick="loadPreset('random')">Случайная</button>
+                </div>
+
+                <div class="control-group">
+                    <label for="gridSize">Размер решетки (10-100):</label>
+                    <input type="number" id="gridSize" min="10" max="100" value="30">
+                </div>
+
+                <div class="control-group">
+                    <label for="temperature">Температура (T) [0.1 - 5.0]:</label>
+                    <input type="number" id="temperature" min="0.1" max="5.0" step="0.01" value="1.0">
+                </div>
+
+                <div class="control-group">
+                    <label for="jParam">Обменное взаимодействие (J) [-2.0 до 2.0]:</label>
+                    <input type="number" id="jParam" min="-2.0" max="2.0" step="0.01" value="1.0">
+                </div>
+
+                <div class="control-group">
+                    <label for="bParam">Внешнее поле (B) [-1.0 до 1.0]:</label>
+                    <input type="number" id="bParam" min="-1.0" max="1.0" step="0.01" value="0.0">
+                </div>
+
+                <div class="control-group">
+                    <label for="animSpeed">Скорость анимации (шагов/кадр) [1-1000]:</label>
+                    <input type="number" id="animSpeed" min="1" max="1000" value="10">
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <button class="btn-primary" onclick="applyParameters()" style="width: 100%;">
+                        ✓ Применить параметры
+                    </button>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="randomizeSpins()">Случайно</button>
+                    <button class="btn-secondary" onclick="allUp()">Все вверх</button>
+                    <button class="btn-primary" onclick="allDown()">Все вниз</button>
+                    <button class="btn-secondary" onclick="resetStats()">Сброс</button>
+                </div>
+
+                <!-- М10Б: Анализ -->
+                <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border: 2px solid #ffc107;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 1.05em; color: #856404;">
+                        📊 М10Б: Фазовый переход
+                    </h3>
+                    <button class="btn-success" onclick="runTemperatureScan()" style="width: 100%; margin-bottom: 8px; font-size: 0.95em;">
+                        🌡️ Построить ⟨M⟩(T)
+                    </button>
+                    <button class="btn-primary" onclick="findCriticalT()" style="width: 100%; font-size: 0.95em;">
+                        🎯 Найти T₀ = T_c
+                    </button>
+                    <div id="analysisResult" style="margin-top: 10px; padding: 8px; background: white; border-radius: 5px; font-size: 0.9em; min-height: 40px;"></div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Намагниченность</div>
+                        <div class="stat-value" id="statM">0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Энергия</div>
+                        <div class="stat-value" id="statE">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Шаги МК</div>
+                        <div class="stat-value" id="statSteps">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">% принятых</div>
+                        <div class="stat-value" id="statAccept">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Состояние системы
+        let sessionId = null;
+        let gridSize = 30;
+        let spins = [];
+        let T = 1.0;
+        let J = 1.0;
+        let B = 0.0;
+        let animationRunning = false;
+        let animationSpeed = 10;
+        let mcSteps = 0;
+        let acceptedFlips = 0;
+
+        const canvas = document.getElementById('latticeCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // API базовый URL
+        const API_BASE = window.location.origin;
+
+        // Инициализация через API
+        async function initSpins(initialSpins = null) {
+            try {
+                const response = await fetch(`${API_BASE}/api/init`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        size: gridSize,
+                        T: T,
+                        J: J,
+                        B: B,
+                        spins: initialSpins
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    sessionId = data.session_id;
+                    updateFromState(data.state);
+                    mcSteps = 0;
+                    acceptedFlips = 0;
+                }
+            } catch (error) {
+                console.error('Ошибка инициализации:', error);
+                alert('Ошибка подключения к серверу');
+            }
+        }
+
+        // Обновление состояния из ответа API
+        function updateFromState(state) {
+            spins = state.spins;
+            gridSize = state.size;
+            T = state.T;
+            J = state.J;
+            B = state.B;
+            currentMagnetization = state.magnetization;
+            currentEnergy = state.energy;
+            drawLattice();
+            updateStats();
+        }
+
+        // Отрисовка решетки
+        function drawLattice() {
+            const size = canvas.width / gridSize;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    ctx.fillStyle = spins[i][j] === 1 ? '#4CAF50' : '#f44336';
+                    ctx.fillRect(j * size, i * size, size - 1, size - 1);
+                }
+            }
+        }
+
+        // Клик по решетке - API вызов
+        canvas.addEventListener('click', async (e) => {
+            if (!sessionId) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const size = canvas.width / gridSize;
+            const i = Math.floor(y / size);
+            const j = Math.floor(x / size);
+
+            if (i >= 0 && i < gridSize && j >= 0 && j < gridSize) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/flip`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            i: i,
+                            j: j
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        updateFromState(data.state);
+                    }
+                } catch (error) {
+                    console.error('Ошибка переворота спина:', error);
+                }
+            }
+        });
+
+        // Шаг Метрополиса через API
+        async function metropolisStep(n_steps = 1) {
+            if (!sessionId) return false;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/step`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        n_steps: n_steps
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    acceptedFlips += data.accepted;
+                    mcSteps += n_steps;
+                    updateFromState(data.state);
+                    return true;
+                }
+            } catch (error) {
+                console.error('Ошибка шага МК:', error);
+                return false;
+            }
+        }
+
+        // Данные приходят с сервера, локальный расчет не нужен
+        let currentMagnetization = 0;
+        let currentEnergy = 0;
+
+        // Обновление статистики из состояния сервера
+        function updateStats() {
+            document.getElementById('statM').textContent = currentMagnetization.toFixed(3);
+            document.getElementById('statE').textContent = Math.round(currentEnergy);
+            document.getElementById('statSteps').textContent = mcSteps;
+            const acceptRate = mcSteps > 0 ? (acceptedFlips / mcSteps * 100).toFixed(1) : 0;
+            document.getElementById('statAccept').textContent = acceptRate + '%';
+        }
+
+        // Анимация
+        async function animate() {
+            if (!animationRunning) return;
+
+            await metropolisStep(animationSpeed);
+
+            requestAnimationFrame(animate);
+        }
+
+        function startAnimation() {
+            animationRunning = true;
+            animate();
+        }
+
+        function stopAnimation() {
+            animationRunning = false;
+        }
+
+        async function stepAnimation() {
+            stopAnimation();
+            await metropolisStep(animationSpeed);
+        }
+
+        // Применение параметров
+        async function applyParameters() {
+            // Получаем значения из полей
+            const newGridSize = parseInt(document.getElementById('gridSize').value);
+            const newT = parseFloat(document.getElementById('temperature').value);
+            const newJ = parseFloat(document.getElementById('jParam').value);
+            const newB = parseFloat(document.getElementById('bParam').value);
+            const newSpeed = parseInt(document.getElementById('animSpeed').value);
+
+            // Валидация
+            if (isNaN(newGridSize) || newGridSize < 10 || newGridSize > 100) {
+                alert('Размер решетки должен быть от 10 до 100');
+                return;
+            }
+            if (isNaN(newT) || newT < 0.1 || newT > 5.0) {
+                alert('Температура должна быть от 0.1 до 5.0');
+                return;
+            }
+            if (isNaN(newJ) || newJ < -2.0 || newJ > 2.0) {
+                alert('J должно быть от -2.0 до 2.0');
+                return;
+            }
+            if (isNaN(newB) || newB < -1.0 || newB > 1.0) {
+                alert('B должно быть от -1.0 до 1.0');
+                return;
+            }
+            if (isNaN(newSpeed) || newSpeed < 1 || newSpeed > 1000) {
+                alert('Скорость должна быть от 1 до 1000');
+                return;
+            }
+
+            animationSpeed = newSpeed;
+
+            // Если изменился размер решетки - пересоздаем
+            if (newGridSize !== gridSize) {
+                gridSize = newGridSize;
+                T = newT;
+                J = newJ;
+                B = newB;
+                await initSpins();
+            } else if (sessionId && (newT !== T || newJ !== J || newB !== B)) {
+                // Обновляем только параметры
+                try {
+                    const response = await fetch(`${API_BASE}/api/update_params`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            T: newT,
+                            J: newJ,
+                            B: newB
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        updateFromState(data.state);
+                    }
+                } catch (error) {
+                    console.error('Ошибка обновления параметров:', error);
+                }
+            }
+
+            // Визуальная обратная связь
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✓ Применено!';
+            btn.style.background = 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '';
+            }, 1000);
+        }
+
+        // Предустановки
+        async function loadPreset(preset) {
+            stopAnimation();
+            switch(preset) {
+                case 'ferro_low':
+                    document.getElementById('temperature').value = 0.5;
+                    document.getElementById('jParam').value = 1.0;
+                    document.getElementById('bParam').value = 0.0;
+                    await applyParameters();
+                    await randomizeSpins();
+                    break;
+                case 'ferro_high':
+                    document.getElementById('temperature').value = 3.0;
+                    document.getElementById('jParam').value = 1.0;
+                    document.getElementById('bParam').value = 0.0;
+                    await applyParameters();
+                    await randomizeSpins();
+                    break;
+                case 'antiferro':
+                    document.getElementById('temperature').value = 0.5;
+                    document.getElementById('jParam').value = -1.0;
+                    document.getElementById('bParam').value = 0.0;
+                    await applyParameters();
+                    await randomizeSpins();
+                    break;
+                case 'random':
+                    await randomizeSpins();
+                    break;
+            }
+        }
+
+        // Начальные конфигурации
+        async function randomizeSpins() {
+            await initSpins();  // API создаст случайную конфигурацию
+        }
+
+        async function allUp() {
+            const upSpins = Array(gridSize).fill().map(() => Array(gridSize).fill(1));
+            await initSpins(upSpins);
+        }
+
+        async function allDown() {
+            const downSpins = Array(gridSize).fill().map(() => Array(gridSize).fill(-1));
+            await initSpins(downSpins);
+        }
+
+        function resetStats() {
+            mcSteps = 0;
+            acceptedFlips = 0;
+            updateStats();
+        }
+
+        // ========================================================================
+        // М10Б: Функции анализа ферромагнетизма
+        // ========================================================================
+
+        async function runTemperatureScan() {
+            const resultDiv = document.getElementById('analysisResult');
+            resultDiv.innerHTML = '<div style="color: #007bff;">⏳ Сканирование температур... Это займёт ~30 сек</div>';
+
+            stopAnimation();
+
+            try {
+                const response = await fetch(`${API_BASE}/api/ferromagnetic_scan`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        size: 20,
+                        J: parseFloat(document.getElementById('jParam').value) || 1.0,
+                        B: 0.0,
+                        T_min: 0.5,
+                        T_max: 4.0,
+                        T_steps: 20,
+                        equilibration_steps: 1500,
+                        measurement_steps: 800
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const result = data.data;
+
+                    // Находим T_c (макс χ)
+                    let maxChi = 0;
+                    let T_at_maxChi = 0;
+                    result.susceptibility.forEach((chi, i) => {
+                        if (chi > maxChi) {
+                            maxChi = chi;
+                            T_at_maxChi = result.temperatures[i];
+                        }
+                    });
+
+                    // Формируем таблицу
+                    let table = '<div style="font-family: monospace; font-size: 0.85em;"><strong>⟨M⟩(T) построено!</strong><br>';
+                    table += '<table style="width: 100%; margin-top: 5px; border-collapse: collapse;">';
+                    table += '<tr style="border-bottom: 1px solid #ccc;"><th>T</th><th>⟨|M|⟩</th><th>χ</th></tr>';
+
+                    for (let i = 0; i < result.temperatures.length; i += Math.floor(result.temperatures.length / 8)) {
+                        const T = result.temperatures[i].toFixed(2);
+                        const M = result.M_abs_avg[i].toFixed(3);
+                        const chi = result.susceptibility[i].toFixed(4);
+                        table += `<tr><td>${T}</td><td>${M}</td><td>${chi}</td></tr>`;
+                    }
+
+                    table += '</table>';
+                    table += `<div style="margin-top: 8px; padding: 5px; background: #d4edda; border-radius: 3px;">`;
+                    table += `<strong>Пик χ при T ≈ ${T_at_maxChi.toFixed(2)}</strong><br>`;
+                    table += `Теория: T_c = 2.269</div></div>`;
+
+                    resultDiv.innerHTML = table;
+                } else {
+                    resultDiv.innerHTML = '<div style="color: red;">❌ Ошибка сканирования</div>';
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                resultDiv.innerHTML = '<div style="color: red;">❌ Ошибка сервера</div>';
+            }
+        }
+
+        async function findCriticalT() {
+            const resultDiv = document.getElementById('analysisResult');
+            resultDiv.innerHTML = '<div style="color: #007bff;">⏳ Определение T_c... Это займёт ~40 сек</div>';
+
+            stopAnimation();
+
+            try {
+                const response = await fetch(`${API_BASE}/api/find_critical_temperature`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        size: 20,
+                        J: parseFloat(document.getElementById('jParam').value) || 1.0,
+                        T_min: 1.5,
+                        T_max: 3.5,
+                        T_steps: 25
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const result = data.data;
+                    const T_c_exp = result.T_c_experimental;
+                    const T_c_theory = result.T_c_theoretical;
+                    const error = result.error_percent;
+
+                    let html = '<div style="font-weight: bold; margin-bottom: 5px;">🎯 Критическая температура T₀:</div>';
+                    html += '<div style="padding: 8px; background: #d4edda; border-radius: 5px; margin-bottom: 5px;">';
+                    html += `<strong style="font-size: 1.1em;">T_c = ${T_c_exp.toFixed(3)}</strong><br>`;
+                    html += `<small>Метод: максимум χ</small></div>`;
+                    html += '<div style="font-size: 0.85em;">';
+                    html += `Теория (2D Изинг): T_c = ${T_c_theory.toFixed(3)}<br>`;
+                    html += `Ошибка: ${error.toFixed(2)}%</div>`;
+
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = '<div style="color: red;">❌ Ошибка определения T_c</div>';
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                resultDiv.innerHTML = '<div style="color: red;">❌ Ошибка сервера</div>';
+            }
+        }
+
+        // Инициализация при загрузке
+        initSpins();
+
+        // Добавляем обработчики Enter для полей ввода
+        ['gridSize', 'temperature', 'jParam', 'bParam', 'animSpeed'].forEach(id => {
+            document.getElementById(id).addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    applyParameters();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
