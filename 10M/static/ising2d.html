@@ -296,10 +296,6 @@
 
             <div class="controls-panel">
                 <div class="preset-buttons">
-                    <button class="preset-btn" onclick="loadPreset('ferro_low')">Ферромагнетик</button>
-                    <button class="preset-btn" onclick="loadPreset('ferro_high')">Парамагнетик</button>
-                    <button class="preset-btn" onclick="loadPreset('antiferro')">Антиферромагнетик</button>
-                    <button class="preset-btn" onclick="loadPreset('random')">Случайная</button>
                 </div>
 
                 <div class="control-group">
@@ -343,13 +339,13 @@
                 <!-- М10Б: Анализ -->
                 <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border: 2px solid #ffc107;">
                     <h3 style="margin: 0 0 10px 0; font-size: 1.05em; color: #856404;">
-                        📊 М10Б: Фазовый переход
+                        М10Б: Фазовый переход
                     </h3>
                     <button class="btn-success" onclick="runTemperatureScan()" style="width: 100%; margin-bottom: 8px; font-size: 0.95em;">
-                        🌡️ Построить ⟨M⟩(T)
+                        Построить ⟨M⟩(T)
                     </button>
                     <button class="btn-primary" onclick="findCriticalT()" style="width: 100%; font-size: 0.95em;">
-                        🎯 Найти T₀ = T_c
+                        Найти T₀ = T_c
                     </button>
                     <div id="analysisResult" style="margin-top: 10px; padding: 8px; background: white; border-radius: 5px; font-size: 0.9em; min-height: 40px;"></div>
                 </div>
@@ -671,10 +667,6 @@
             updateStats();
         }
 
-        // ========================================================================
-        // М10Б: Функции анализа ферромагнетизма
-        // ========================================================================
-
         async function runTemperatureScan() {
             const resultDiv = document.getElementById('analysisResult');
             resultDiv.innerHTML = '<div style="color: #007bff;">⏳ Сканирование температур... Это займёт ~30 сек</div>';
@@ -712,7 +704,6 @@
                         }
                     });
 
-                    // Формируем таблицу
                     let table = '<div style="font-family: monospace; font-size: 0.85em;"><strong>⟨M⟩(T) построено!</strong><br>';
                     table += '<table style="width: 100%; margin-top: 5px; border-collapse: collapse;">';
                     table += '<tr style="border-bottom: 1px solid #ccc;"><th>T</th><th>⟨|M|⟩</th><th>χ</th></tr>';
@@ -731,11 +722,11 @@
 
                     resultDiv.innerHTML = table;
                 } else {
-                    resultDiv.innerHTML = '<div style="color: red;">❌ Ошибка сканирования</div>';
+                    resultDiv.innerHTML = '<div style="color: red;"> Ошибка сканирования</div>';
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
-                resultDiv.innerHTML = '<div style="color: red;">❌ Ошибка сервера</div>';
+                resultDiv.innerHTML = '<div style="color: red;"> Ошибка сервера</div>';
             }
         }
 
@@ -776,11 +767,11 @@
 
                     resultDiv.innerHTML = html;
                 } else {
-                    resultDiv.innerHTML = '<div style="color: red;">❌ Ошибка определения T_c</div>';
+                    resultDiv.innerHTML = '<div style="color: red;"> Ошибка определения T_c</div>';
                 }
             } catch (error) {
                 console.error('Ошибка:', error);
-                resultDiv.innerHTML = '<div style="color: red;">❌ Ошибка сервера</div>';
+                resultDiv.innerHTML = '<div style="color: red;"> Ошибка сервера</div>';
             }
         }
 
